@@ -3,40 +3,50 @@ import matplotlib.pyplot as plt
 #!pip -q -q -q install japanize-matplotlib
 import japanize_matplotlib
 from tqdm import tqdm
+import pickle
 
 #@markdown ####以下にプレイヤー名を入力し、左部の再生ボタン(▷)を押してください。
 #@markdown ####モード選択で四麻と三麻を切り替えることができます。
 プレイヤー名 = 'KillerDucky' # @param {type:"string"}
 モード選択 = '\u56DB\u9EBB' # @param ['四麻', '三麻']
-if モード選択 == '四麻':
-  s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
-  mode = '16,15,12,11,9,8'
-  Color = {16: 'r', 15: 'r', 12: 'g', 11: 'g', 9: 'y', 8: 'y'}
-  pre_level = 10301
-elif モード選択 == '三麻':
-  s0 = 'https://5-data.amae-koromo.com/api/v2/pl3/'
-  mode = '26,24,22,25,23,21'
-  Color = {26: 'r', 25: 'r', 24: 'g', 23: 'g', 22: 'y', 21: 'y'}
-  pre_level = 20301
-#@markdown ####同一のプレイヤー名のIDが複数存在しており、別IDに切り替える場合は次の値を1増やしてください。
-同名ID切替 = 0 #@param {type:'integer'}
-print(f'プレイヤー名：{プレイヤー名}')
-pdata = requests.get(f'{s0}search_player/{プレイヤー名}').json()[同名ID切替]
-pid =  pdata['id']
-start = pdata['latest_timestamp']
-X = []
-for i in range(100):
-  s1 = f'{s0}player_records/{pid}/{start}999/1262304000000?limit=500&mode={mode}&descending=true&tag='
-  games = requests.get(s1).json()
-  length = len(games)
-  if length == 0:
-    break
-  print(f'({i}) 読み込み試合数: {length}')
-  start = games[-1]['startTime'] - 1
-  X += games
-  if length < 500:
-    break
-  time.sleep(0.01)
+
+fetch_data = False
+#fetch_data = True
+if fetch_data:
+    if モード選択 == '四麻':
+        s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
+        mode = '16,15,12,11,9,8'
+        Color = {16: 'r', 15: 'r', 12: 'g', 11: 'g', 9: 'y', 8: 'y'}
+        pre_level = 10301
+    elif モード選択 == '三麻':
+        s0 = 'https://5-data.amae-koromo.com/api/v2/pl3/'
+        mode = '26,24,22,25,23,21'
+        Color = {26: 'r', 25: 'r', 24: 'g', 23: 'g', 22: 'y', 21: 'y'}
+        pre_level = 20301
+    #@markdown ####同一のプレイヤー名のIDが複数存在しており、別IDに切り替える場合は次の値を1増やしてください。
+    同名ID切替 = 0 #@param {type:'integer'}
+    print(f'プレイヤー名：{プレイヤー名}')
+    pdata = requests.get(f'{s0}search_player/{プレイヤー名}').json()[同名ID切替]
+    pid =  pdata['id']
+    start = pdata['latest_timestamp']
+    X = []
+    for i in range(100):
+        s1 = f'{s0}player_records/{pid}/{start}999/1262304000000?limit=500&mode={mode}&descending=true&tag='
+        games = requests.get(s1).json()
+        length = len(games)
+        if length == 0:
+            break
+        print(f'({i}) 読み込み試合数: {length}')
+        start = games[-1]['startTime'] - 1
+        X += games
+        if length < 500:
+            break
+    time.sleep(0.01)
+
+    with open("amae_pickle", "wb") as fp: pickle.dump([pdata, pid, Color, pre_level, X], fp)
+else:
+    print(f'load from amae_pickle')
+    with open("amae_pickle", "rb") as fp: [pdata, pid, Color, pre_level, X] = pickle.load(fp)
 
 d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
