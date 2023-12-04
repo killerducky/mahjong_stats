@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import japanize_matplotlib
 from tqdm import tqdm
 import pickle
+import sys
 
 #@markdown ####以下にプレイヤー名を入力し、左部の再生ボタン(▷)を押してください。
 #@markdown ####モード選択で四麻と三麻を切り替えることができます。
@@ -47,6 +48,10 @@ if fetch_data:
 else:
     print(f'load from amae_pickle')
     with open("amae_pickle", "rb") as fp: [pdata, pid, Color, pre_level, X] = pickle.load(fp)
+
+#print(X[0])
+#sys.exit()
+#{'_id': '8hrogmr7Bst', 'modeId': 12, 'uuid': '231203-47ff6d0f-f4c0-4f8f-9205-a714768c7e37', 'startTime': 1701582266, 'endTime': 1701584735, 'players': [{'accountId': 68010342, 'nickname': 'mizuki11', 'level': 10402, 'score': 13200, 'gradingScore': -206}, {'accountId': 120517763, 'nickname': 'KillerDucky', 'level': 10401, 'score': 20300, 'gradingScore': -9}, {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
 d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
