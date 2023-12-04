@@ -5,14 +5,17 @@ import japanize_matplotlib
 from tqdm import tqdm
 import pickle
 import sys
+import os
 
 #@markdown ####以下にプレイヤー名を入力し、左部の再生ボタン(▷)を押してください。
 #@markdown ####モード選択で四麻と三麻を切り替えることができます。
 プレイヤー名 = 'KillerDucky' # @param {type:"string"}
 モード選択 = '\u56DB\u9EBB' # @param ['四麻', '三麻']
 
+save_filename = "amae_pickle"
 fetch_data = False
-#fetch_data = True
+if not os.path.exists(save_filename):
+    fetch_data = True
 
 def calcMovingAvg(data, window_size):
    return [sum(data[i:i+window_size])/window_size for i in range(len(data)-window_size+1)]
@@ -48,10 +51,10 @@ if fetch_data:
             break
     time.sleep(0.01)
 
-    with open("amae_pickle", "wb") as fp: pickle.dump([pdata, pid, Color, pre_level, X], fp)
+    with open(save_filename, "wb") as fp: pickle.dump([pdata, pid, Color, pre_level, X], fp)
 else:
-    print(f'load from amae_pickle')
-    with open("amae_pickle", "rb") as fp: [pdata, pid, Color, pre_level, X] = pickle.load(fp)
+    print(f'load from {save_filename}')
+    with open(save_filename, "rb") as fp: [pdata, pid, Color, pre_level, X] = pickle.load(fp)
 
 d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
@@ -97,6 +100,7 @@ window_size = 100
 moving_avg = calcMovingAvg(placements, window_size)
 gradingScoresAvg = calcMovingAvg(gradingScores, window_size)
 gradingScoresAvgNorm = calcMovingAvg(gradingScoresNorm, window_size)
+gradingScoresAvgNorm2 = calcMovingAvg(gradingScoresNorm, window_size//2)
 
 #print(moving_avg)
 #print(len(X), skipped, len(X)-skipped+1, len(X)-skipped-window_size, len(moving_avg))
@@ -108,6 +112,7 @@ plt.figure(figsize=(10, 6))
 #plt.plot(range(len(moving_avg)), moving_avg, label=f'Moving Average ({window_size} periods)')
 #plt.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)')
 plt.plot(range(len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} periods)')
+plt.plot(range(len(gradingScoresAvgNorm2)), gradingScoresAvgNorm2, label=f'Expected Score ({window_size//2} periods)')
 plt.legend()
 plt.title(f'Expected Score (assuming {normalize_to_rank})')
 plt.xlabel('Date')
@@ -118,10 +123,7 @@ for k,v in last_place_normalize.items():
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)', color='orange')
 #ax2.set_ylabel('score', color='orange')
-plt.show(block=False)
-
-#plt.show()
-#sys.exit()
+plt.savefig('Expected_Score.png')
 
 #@markdown ####・細かい設定
 #@markdown #####「左端」と「右端」を指定すると、何戦から何戦までを表示するかを指定できます。
@@ -157,6 +159,4 @@ plt.title(f'雀魂段位戦ポイント推移[{モード選択}]({プレイヤ�
 plt.xlabel('試合数', fontsize=20); plt.ylabel('ポイント', fontsize=20)
 plt.xticks(fontsize=20); plt.yticks([i*1000 for i in range(11)], fontsize=20)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
-plt.show(block=False)
-
-plt.show()
+plt.savefig('Rank_Progress.png')
