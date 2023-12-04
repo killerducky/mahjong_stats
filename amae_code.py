@@ -13,6 +13,10 @@ import sys
 
 fetch_data = False
 #fetch_data = True
+
+def calcMovingAvg(data, window_size):
+   return [sum(data[i:i+window_size])/window_size for i in range(len(data)-window_size+1)]
+
 if fetch_data:
     if モード選択 == '四麻':
         s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
@@ -49,14 +53,53 @@ else:
     print(f'load from amae_pickle')
     with open("amae_pickle", "rb") as fp: [pdata, pid, Color, pre_level, X] = pickle.load(fp)
 
-#print(X[0])
-#sys.exit()
-#{'_id': '8hrogmr7Bst', 'modeId': 12, 'uuid': '231203-47ff6d0f-f4c0-4f8f-9205-a714768c7e37', 'startTime': 1701582266, 'endTime': 1701584735, 'players': [{'accountId': 68010342, 'nickname': 'mizuki11', 'level': 10402, 'score': 13200, 'gradingScore': -206}, {'accountId': 120517763, 'nickname': 'KillerDucky', 'level': 10401, 'score': 20300, 'gradingScore': -9}, {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
-
 d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
 level_dan = lambda level: f'{d[level // 100 % 100 - 2]}{level % 100}'
 level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 1000] * 100
+
+#print(X[0])
+#sys.exit()
+#{'_id': '8hrogmr7Bst', 'modeId': 12, 'uuid': '231203-47ff6d0f-f4c0-4f8f-9205-a714768c7e37', 'startTime': 1701582266, 'endTime': 1701584735, 
+# 'players': [{'accountId': 68010342, 'nickname': 'mizuki11', 'level': 10402, 'score': 13200, 'gradingScore': -206}, 
+#             {'accountId': 120517763, 'nickname': 'KillerDucky', 'level': 10401, 'score': 20300, 'gradingScore': -9}, 
+#             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, 
+#             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
+
+skipped = 0
+placements = []
+gradingScores = []
+for game in reversed(X):
+    if game['modeId']!=12: 
+       skipped +=1
+       continue
+    players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
+    idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
+    game['placement'] = 4 - idx
+    placements.append(game['placement'])
+    gradingScores.append(players_sorted[idx]['gradingScore'])
+for i in range(3):
+    print(X[i]['placement'], X[i]['modeId'])
+
+window_size = 100
+moving_avg = calcMovingAvg(placements, window_size)
+gradingScoresAvg = calcMovingAvg(gradingScores, window_size)
+print(moving_avg)
+print(len(X), skipped, len(X)-skipped+1, len(X)-skipped-window_size, len(moving_avg))
+print(gradingScoresAvg)
+print(len(moving_avg), len(gradingScoresAvg))
+
+# Plotting
+plt.figure(figsize=(10, 6))
+plt.plot(range(len(moving_avg)), moving_avg, label=f'Moving Average ({window_size} periods)')
+plt.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)')
+plt.legend()
+plt.title('Moving Average Example')
+plt.xlabel('Date')
+plt.ylabel('Value')
+plt.show()
+
+sys.exit()
 
 #@markdown ####・細かい設定
 #@markdown #####「左端」と「右端」を指定すると、何戦から何戦までを表示するかを指定できます。
@@ -93,3 +136,4 @@ plt.xlabel('試合数', fontsize=20); plt.ylabel('ポイント', fontsize=20)
 plt.xticks(fontsize=20); plt.yticks([i*1000 for i in range(11)], fontsize=20)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
 plt.show()
+
