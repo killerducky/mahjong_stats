@@ -57,6 +57,10 @@ d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
 level_dan = lambda level: f'{d[level // 100 % 100 - 2]}{level % 100}'
 level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 1000] * 100
+last_place_penalty = {'豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240}
+normalize_to_rank = '豪1'
+# Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
+last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in last_place_penalty.items()}
 
 #print(X[0])
 #sys.exit()
@@ -69,37 +73,55 @@ level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 100
 skipped = 0
 placements = []
 gradingScores = []
+gradingScoresNorm = []
 for game in reversed(X):
     if game['modeId']!=12: 
        skipped +=1
        continue
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
-    game['placement'] = 4 - idx
+    place = 4 - idx
+    game['placement'] = place
     placements.append(game['placement'])
     gradingScores.append(players_sorted[idx]['gradingScore'])
-for i in range(3):
-    print(X[i]['placement'], X[i]['modeId'])
+    level = level_dan(players_sorted[idx]['level'])
+    if place == 4:
+        gradingScoresNorm.append(players_sorted[idx]['gradingScore']+last_place_normalize[level])
+    else:
+        gradingScoresNorm.append(players_sorted[idx]['gradingScore'])
+    level = players_sorted[idx]['level']
+#for i in range(3):
+#    print(X[i]['placement'], X[i]['modeId'])
 
 window_size = 100
 moving_avg = calcMovingAvg(placements, window_size)
 gradingScoresAvg = calcMovingAvg(gradingScores, window_size)
-print(moving_avg)
-print(len(X), skipped, len(X)-skipped+1, len(X)-skipped-window_size, len(moving_avg))
-print(gradingScoresAvg)
-print(len(moving_avg), len(gradingScoresAvg))
+gradingScoresAvgNorm = calcMovingAvg(gradingScoresNorm, window_size)
+
+#print(moving_avg)
+#print(len(X), skipped, len(X)-skipped+1, len(X)-skipped-window_size, len(moving_avg))
+#print(gradingScoresAvg)
+#print(len(moving_avg), len(gradingScoresAvg))
 
 # Plotting
 plt.figure(figsize=(10, 6))
-plt.plot(range(len(moving_avg)), moving_avg, label=f'Moving Average ({window_size} periods)')
-plt.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)')
+#plt.plot(range(len(moving_avg)), moving_avg, label=f'Moving Average ({window_size} periods)')
+#plt.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)')
+plt.plot(range(len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} periods)')
 plt.legend()
-plt.title('Moving Average Example')
+plt.title(f'Expected Score (assuming {normalize_to_rank})')
 plt.xlabel('Date')
 plt.ylabel('Value')
-plt.show()
+for k,v in last_place_normalize.items():
+   plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
 
-sys.exit()
+#ax2 = plt.twinx()
+#ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)', color='orange')
+#ax2.set_ylabel('score', color='orange')
+plt.show(block=False)
+
+#plt.show()
+#sys.exit()
 
 #@markdown ####・細かい設定
 #@markdown #####「左端」と「右端」を指定すると、何戦から何戦までを表示するかを指定できます。
@@ -135,5 +157,6 @@ plt.title(f'雀魂段位戦ポイント推移[{モード選択}]({プレイヤ�
 plt.xlabel('試合数', fontsize=20); plt.ylabel('ポイント', fontsize=20)
 plt.xticks(fontsize=20); plt.yticks([i*1000 for i in range(11)], fontsize=20)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
-plt.show()
+plt.show(block=False)
 
+plt.show()
