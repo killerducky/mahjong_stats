@@ -6,6 +6,7 @@ from tqdm import tqdm
 import pickle
 import sys
 import os
+import statistics
 
 #@markdown ####以下にプレイヤー名を入力し、左部の再生ボタン(▷)を押してください。
 #@markdown ####モード選択で四麻と三麻を切り替えることができます。
@@ -18,7 +19,7 @@ if not os.path.exists(save_filename):
     fetch_data = True
 
 def calcMovingAvg(data, window_size):
-   return [sum(data[i:i+window_size])/window_size for i in range(len(data)-window_size+1)]
+    return [statistics.mean(data[i:i+window_size]) for i in range(len(data)-window_size+1)]
 
 if fetch_data:
     if モード選択 == '四麻':
@@ -73,30 +74,40 @@ last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in
 #             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, 
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
+window_size = 200
 skipped = 0
+skip_flag = False
 placements = []
 gradingScores = []
 gradingScoresNorm = []
 for game in reversed(X):
-    if game['modeId']!=12: 
-       skipped +=1
-       continue
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
     place = 4 - idx
     game['placement'] = place
     placements.append(game['placement'])
-    gradingScores.append(players_sorted[idx]['gradingScore'])
     level = level_dan(players_sorted[idx]['level'])
-    if place == 4:
-        gradingScoresNorm.append(players_sorted[idx]['gradingScore']+last_place_normalize[level])
+    if game['modeId']!=12: 
+        skipped +=1
+        if skip_flag:
+            # While skipping, keep adding the same mean we calculated last iteration
+            gradingScores.append(gradingScores[-1])
+            gradingScoresNorm.append(gradingScoresNorm[-1])
+        else:
+            gradingScores.append(statistics.mean(([0]+gradingScores)[-window_size:]))
+            gradingScoresNorm.append(statistics.mean(([0]+gradingScoresNorm)[-window_size:]))
+        #print('fake:', skip_flag, gradingScoresNorm[-1])
+        skip_flag = True
     else:
-        gradingScoresNorm.append(players_sorted[idx]['gradingScore'])
-    level = players_sorted[idx]['level']
-#for i in range(3):
-#    print(X[i]['placement'], X[i]['modeId'])
+        skip_flag = False
+        gradingScores.append(players_sorted[idx]['gradingScore'])
+        if place == 4:
+            gradingScoresNorm.append(players_sorted[idx]['gradingScore']+last_place_normalize[level])
+        else:
+            gradingScoresNorm.append(players_sorted[idx]['gradingScore'])
+#for i in range(5):
+#    print(i, X[i]['placement'], X[i]['modeId'])
 
-window_size = 100
 moving_avg = calcMovingAvg(placements, window_size)
 gradingScoresAvg = calcMovingAvg(gradingScores, window_size)
 gradingScoresAvgNorm = calcMovingAvg(gradingScoresNorm, window_size)
@@ -108,7 +119,7 @@ gradingScoresAvgNorm2 = calcMovingAvg(gradingScoresNorm, window_size//2)
 #print(len(moving_avg), len(gradingScoresAvg))
 
 # Plotting
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(10, 4.5))
 #plt.plot(range(len(moving_avg)), moving_avg, label=f'Moving Average ({window_size} periods)')
 #plt.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)')
 plt.plot(range(len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} periods)')
@@ -131,9 +142,9 @@ plt.savefig('Expected_Score.png')
 左端 = 0 # @param {type: 'integer'} # default = 0
 右端 = 100000 # @param {type: 'integer'} # default = 1000000
 #@markdown #####「上端」を指定すると、縦軸のポイント表示の上限を変更できます。
-上端 = 5000 # @param {type: 'integer'} # default = 10000
+上端 = 3500 # @param {type: 'integer'} # default = 10000
 
-plt.figure(facecolor='w', figsize=(16, 10))
+plt.figure(facecolor='w', figsize=(16, 8))
 if 左端 == 0:
   plt.text(3, 100, f'傑\n1', fontsize=15)
 pre_pt, pt, base = 600, 600, 600
