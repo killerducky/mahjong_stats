@@ -19,7 +19,26 @@ if not os.path.exists(save_filename):
     fetch_data = True
 
 def calcMovingAvg(data, window_size):
-    return [statistics.mean(data[i:i+window_size]) for i in range(len(data)-window_size+1)]
+    filtered = [v for v in data if v is not None]
+    filtered = [statistics.mean(filtered[i:i+window_size]) for i in range(len(filtered)-window_size+1)]
+    final_result = []
+    non_null_count = 0
+    for i,v in enumerate(data):
+        if v == None:
+            final_result.append(None)
+        else:
+            if (non_null_count >= window_size-1):
+                final_result.append(filtered[non_null_count-window_size])  
+            else:
+                final_result.append(None)
+            non_null_count += 1
+    return(final_result)
+
+#print(calcMovingAvg(list(range(20))+list(range(20)), 5))
+#print()
+#print(calcMovingAvg(list(range(20))+[None]*5+list(range(20)), 5))
+#sys.exit()
+
 
 if fetch_data:
     if モード選択 == '四麻':
@@ -74,11 +93,8 @@ last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in
 #             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, 
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
-window_size = 400
-skipped = 0
-skip_flag = False
+window_size = 200
 placements = []
-gradingScores = []
 gradingScoresNorm = []
 for game in reversed(X):
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
@@ -88,45 +104,36 @@ for game in reversed(X):
     placements.append(game['placement'])
     level = level_dan(players_sorted[idx]['level'])
     if game['modeId']!=12: 
-        skipped +=1
-        if skip_flag:
-            # While skipping, keep adding the same mean we calculated last iteration
-            gradingScores.append(gradingScores[-1])
-            gradingScoresNorm.append(gradingScoresNorm[-1])
-        else:
-            gradingScores.append(statistics.mean(([0]+gradingScores)[-window_size:]))
-            gradingScoresNorm.append(statistics.mean(([0]+gradingScoresNorm)[-window_size:]))
-        #print('fake:', skip_flag, gradingScoresNorm[-1])
-        skip_flag = True
+        gradingScoresNorm.append(None)
     else:
-        skip_flag = False
-        gradingScores.append(players_sorted[idx]['gradingScore'])
+        gradingScoresNorm.append(players_sorted[idx]['gradingScore'])
         if place == 4:
-            gradingScoresNorm.append(players_sorted[idx]['gradingScore']+last_place_normalize[level])
-        else:
-            gradingScoresNorm.append(players_sorted[idx]['gradingScore'])
+            gradingScoresNorm[-1] += last_place_normalize[level]
 #for i in range(5):
 #    print(i, X[i]['placement'], X[i]['modeId'])
 
 moving_avg = calcMovingAvg(placements, window_size)
-gradingScoresAvg = calcMovingAvg(gradingScores, window_size)
 gradingScoresAvgNorm = calcMovingAvg(gradingScoresNorm, window_size)
 gradingScoresAvgNorm2 = calcMovingAvg(gradingScoresNorm, window_size//2)
 gradingScoresAvgNorm4 = calcMovingAvg(gradingScoresNorm, window_size//4)
+gradingScoresAvgNorm[0] = 0
+#print("a", len(calcMovingAvg(gradingScoresAvgNorm4, 1)))
 
 #print(moving_avg)
 #print(len(X), skipped, len(X)-skipped+1, len(X)-skipped-window_size, len(moving_avg))
 #print(gradingScoresAvg)
 #print(len(moving_avg), len(gradingScoresAvg))
 
+print(len(gradingScoresNorm), len(gradingScoresAvgNorm), len(gradingScoresAvgNorm4))
 # Plotting
-plt.figure(figsize=(8.5, 4.5))
-plt.plot(range(window_size, window_size+len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} games)')
-plt.plot(range(window_size//2, window_size//2+len(gradingScoresAvgNorm2)), gradingScoresAvgNorm2, label=f'Expected Score ({window_size//2} games)')
-plt.plot(range(window_size//4, window_size//4+len(gradingScoresAvgNorm4)), gradingScoresAvgNorm4, label=f'Expected Score ({window_size//4} games)')
+plt.figure(figsize=(10, 4.5))
+plt.plot(range(len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} games)')
+plt.plot(range(len(gradingScoresAvgNorm2)), gradingScoresAvgNorm2, label=f'Expected Score ({window_size//2} games)')
+plt.plot(range(len(gradingScoresAvgNorm4)), gradingScoresAvgNorm4, label=f'Expected Score ({window_size//4} games)')
 plt.legend()
 plt.title(f'Expected Score (assuming {normalize_to_rank})')
 plt.xlabel('Game Number')
+plt.xlim(0, len(gradingScoresAvgNorm))
 plt.ylabel('Expected Score')
 for k,v in last_place_normalize.items():
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
