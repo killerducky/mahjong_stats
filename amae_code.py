@@ -50,7 +50,7 @@ if fetch_data:
         X += games
         if length < 500:
             break
-    time.sleep(0.01)
+        time.sleep(0.01)
 
     with open(save_filename, "wb") as fp: pickle.dump([pdata, pid, Color, pre_level, X], fp)
 else:
@@ -74,7 +74,7 @@ last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in
 #             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, 
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
-window_size = 200
+window_size = 400
 skipped = 0
 skip_flag = False
 placements = []
@@ -112,6 +112,7 @@ moving_avg = calcMovingAvg(placements, window_size)
 gradingScoresAvg = calcMovingAvg(gradingScores, window_size)
 gradingScoresAvgNorm = calcMovingAvg(gradingScoresNorm, window_size)
 gradingScoresAvgNorm2 = calcMovingAvg(gradingScoresNorm, window_size//2)
+gradingScoresAvgNorm4 = calcMovingAvg(gradingScoresNorm, window_size//4)
 
 #print(moving_avg)
 #print(len(X), skipped, len(X)-skipped+1, len(X)-skipped-window_size, len(moving_avg))
@@ -119,20 +120,19 @@ gradingScoresAvgNorm2 = calcMovingAvg(gradingScoresNorm, window_size//2)
 #print(len(moving_avg), len(gradingScoresAvg))
 
 # Plotting
-plt.figure(figsize=(10, 4.5))
-#plt.plot(range(len(moving_avg)), moving_avg, label=f'Moving Average ({window_size} periods)')
-#plt.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)')
-plt.plot(range(len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} periods)')
-plt.plot(range(len(gradingScoresAvgNorm2)), gradingScoresAvgNorm2, label=f'Expected Score ({window_size//2} periods)')
+plt.figure(figsize=(8.5, 4.5))
+plt.plot(range(window_size, window_size+len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} games)')
+plt.plot(range(window_size//2, window_size//2+len(gradingScoresAvgNorm2)), gradingScoresAvgNorm2, label=f'Expected Score ({window_size//2} games)')
+plt.plot(range(window_size//4, window_size//4+len(gradingScoresAvgNorm4)), gradingScoresAvgNorm4, label=f'Expected Score ({window_size//4} games)')
 plt.legend()
 plt.title(f'Expected Score (assuming {normalize_to_rank})')
-plt.xlabel('Date')
-plt.ylabel('Value')
+plt.xlabel('Game Number')
+plt.ylabel('Expected Score')
 for k,v in last_place_normalize.items():
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
 
 #ax2 = plt.twinx()
-#ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} periods)', color='orange')
+#ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
 plt.savefig('Expected_Score.png')
 
