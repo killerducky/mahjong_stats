@@ -93,7 +93,7 @@ last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in
 #             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, 
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
-window_size = 200
+window_size = 400
 placements = []
 gradingScoresNorm = []
 for game in reversed(X):
@@ -109,24 +109,15 @@ for game in reversed(X):
         gradingScoresNorm.append(players_sorted[idx]['gradingScore'])
         if place == 4:
             gradingScoresNorm[-1] += last_place_normalize[level]
-#for i in range(5):
-#    print(i, X[i]['placement'], X[i]['modeId'])
 
 moving_avg = calcMovingAvg(placements, window_size)
 gradingScoresAvgNorm = calcMovingAvg(gradingScoresNorm, window_size)
 gradingScoresAvgNorm2 = calcMovingAvg(gradingScoresNorm, window_size//2)
 gradingScoresAvgNorm4 = calcMovingAvg(gradingScoresNorm, window_size//4)
 gradingScoresAvgNorm[0] = 0
-#print("a", len(calcMovingAvg(gradingScoresAvgNorm4, 1)))
 
-#print(moving_avg)
-#print(len(X), skipped, len(X)-skipped+1, len(X)-skipped-window_size, len(moving_avg))
-#print(gradingScoresAvg)
-#print(len(moving_avg), len(gradingScoresAvg))
-
-print(len(gradingScoresNorm), len(gradingScoresAvgNorm), len(gradingScoresAvgNorm4))
 # Plotting
-plt.figure(figsize=(10, 4.5))
+plt.figure(figsize=(15, 4.5))
 plt.plot(range(len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} games)')
 plt.plot(range(len(gradingScoresAvgNorm2)), gradingScoresAvgNorm2, label=f'Expected Score ({window_size//2} games)')
 plt.plot(range(len(gradingScoresAvgNorm4)), gradingScoresAvgNorm4, label=f'Expected Score ({window_size//4} games)')
@@ -151,9 +142,9 @@ plt.savefig('Expected_Score.png')
 #@markdown #####「上端」を指定すると、縦軸のポイント表示の上限を変更できます。
 上端 = 3500 # @param {type: 'integer'} # default = 10000
 
-plt.figure(facecolor='w', figsize=(16, 8))
+plt.figure(facecolor='w', figsize=(15, 5))
 if 左端 == 0:
-  plt.text(3, 100, f'傑\n1', fontsize=15)
+  plt.text(3, 100, f'傑\n1', fontsize=12)
 pre_pt, pt, base = 600, 600, 600
 for i, game in enumerate(tqdm(X[::-1])):
   for data in game['players']:
@@ -162,7 +153,7 @@ for i, game in enumerate(tqdm(X[::-1])):
       if pre_level != level:
         if 左端 <= i <= 右端:
           s = level_dan(level)
-          plt.text(i+3, 100, f'{s[0]}\n{s[1:]}', fontsize=15)
+          plt.text(i+3, 100, f'{s[0]}\n{s[1:]}', fontsize=12)
           plt.vlines(i, 0, max(level_pt_base(level), level_pt_base(pre_level))*2, color='k')
         base = level_pt_base(level)
         pt = pre_pt = base
@@ -173,8 +164,8 @@ for i, game in enumerate(tqdm(X[::-1])):
         plt.plot([i, i+1], [base, base], color='k', lw=1.5)
         plt.plot([i, i+1], [base*2, base*2], color='k', lw=1.5)
       pre_level, pre_pt = level, pt
-plt.title(f'雀魂段位戦ポイント推移[{モード選択}]({プレイヤー名})', fontsize=30)
-plt.xlabel('試合数', fontsize=20); plt.ylabel('ポイント', fontsize=20)
-plt.xticks(fontsize=20); plt.yticks([i*1000 for i in range(11)], fontsize=20)
+plt.title(f'Rank Points Trend[{モード選択}]({プレイヤー名})', fontsize=20)
+plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
+plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
 plt.savefig('Rank_Progress.png')
