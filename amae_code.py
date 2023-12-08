@@ -11,12 +11,27 @@ import statistics
 #@markdown ####以下にプレイヤー名を入力し、左部の再生ボタン(▷)を押してください。
 #@markdown ####モード選択で四麻と三麻を切り替えることができます。
 プレイヤー名 = 'KillerDucky' # @param {type:"string"}
+#プレイヤー名 = 'wrathss' # @param {type:"string"}
 モード選択 = '\u56DB\u9EBB' # @param ['四麻', '三麻']
-
+#@markdown ####同一のプレイヤー名のIDが複数存在しており、別IDに切り替える場合は次の値を1増やしてください。
+同名ID切替 = 0 #@param {type:'integer'}
+#print(f'プレイヤー名：{プレイヤー名}')
 save_filename = "amae_pickle"
-fetch_data = False
-if not os.path.exists(save_filename):
-    fetch_data = True
+update_cached_data = False
+cached_data_dirty = False
+cached_data = {}
+if os.path.exists(save_filename):
+    with open(save_filename, "rb") as fp: cached_data = pickle.load(fp)
+
+def cached_requests(s1):
+    global cached_data_dirty
+    if update_cached_data or not s1 in cached_data:
+        if not cached_data_dirty:
+           print("requesting from server")
+        cached_data[s1] = requests.get(s1).json()
+        cached_data_dirty = True
+        time.sleep(0.01)
+    return cached_data[s1]
 
 def exponential_moving_average(data, half_life):
     alpha = 1 - 0.5 ** (1 / half_life)
@@ -49,41 +64,31 @@ def calcMovingAvg(data, window_size):
 #print(calcMovingAvg(list(range(20))+[None]*5+list(range(20)), 5))
 #sys.exit()
 
-if fetch_data:
-    if モード選択 == '四麻':
-        s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
-        mode = '16,15,12,11,9,8'
-        Color = {16: 'r', 15: 'r', 12: 'g', 11: 'g', 9: 'y', 8: 'y'}
-        pre_level = 10301
-    elif モード選択 == '三麻':
-        s0 = 'https://5-data.amae-koromo.com/api/v2/pl3/'
-        mode = '26,24,22,25,23,21'
-        Color = {26: 'r', 25: 'r', 24: 'g', 23: 'g', 22: 'y', 21: 'y'}
-        pre_level = 20301
-    #@markdown ####同一のプレイヤー名のIDが複数存在しており、別IDに切り替える場合は次の値を1増やしてください。
-    同名ID切替 = 0 #@param {type:'integer'}
-    print(f'プレイヤー名：{プレイヤー名}')
-    pdata = requests.get(f'{s0}search_player/{プレイヤー名}').json()[同名ID切替]
-    pid =  pdata['id']
-    start = pdata['latest_timestamp']
-    X = []
-    for i in range(100):
-        s1 = f'{s0}player_records/{pid}/{start}999/1262304000000?limit=500&mode={mode}&descending=true&tag='
-        games = requests.get(s1).json()
-        length = len(games)
-        if length == 0:
-            break
-        print(f'({i}) 読み込み試合数: {length}')
-        start = games[-1]['startTime'] - 1
-        X += games
-        if length < 500:
-            break
-        time.sleep(0.01)
-
-    with open(save_filename, "wb") as fp: pickle.dump([pdata, pid, Color, pre_level, X], fp)
-else:
-    print(f'load from {save_filename}')
-    with open(save_filename, "rb") as fp: [pdata, pid, Color, pre_level, X] = pickle.load(fp)
+if モード選択 == '四麻':
+    s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
+    mode = '16,15,12,11,9,8'
+    Color = {16: 'r', 15: 'r', 12: 'g', 11: 'g', 9: 'y', 8: 'y'}
+    pre_level = 10301
+elif モード選択 == '三麻':
+    s0 = 'https://5-data.amae-koromo.com/api/v2/pl3/'
+    mode = '26,24,22,25,23,21'
+    Color = {26: 'r', 25: 'r', 24: 'g', 23: 'g', 22: 'y', 21: 'y'}
+    pre_level = 20301
+pdata = cached_requests(f'{s0}search_player/{プレイヤー名}')[同名ID切替]
+pid =  pdata['id']
+start = pdata['latest_timestamp']
+X = []
+for i in range(100):
+    s1 = f'{s0}player_records/{pid}/{start}999/1262304000000?limit=500&mode={mode}&descending=true&tag='
+    games = cached_requests(s1)
+    length = len(games)
+    if length == 0:
+        break
+    print(f'({i}) 読み込み試合数: {length}')
+    start = games[-1]['startTime'] - 1
+    X += games
+    if length < 500:
+        break
 
 d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
@@ -131,7 +136,6 @@ plt.xlim(0, len(gradingScoresNorm))
 plt.ylabel('Expected Score')
 for k,v in last_place_normalize.items():
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
-
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
@@ -172,3 +176,6 @@ plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
 plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
 plt.savefig('Rank_Progress.png')
+
+if cached_data_dirty:
+    with open(save_filename, "wb") as fp: pickle.dump(cached_data, fp)
