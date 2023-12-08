@@ -18,27 +18,36 @@ fetch_data = False
 if not os.path.exists(save_filename):
     fetch_data = True
 
+def exponential_moving_average(data, half_life):
+    alpha = 1 - 0.5 ** (1 / half_life)
+    ema = [sum(data[:half_life]) / half_life]  # Initial SMA for the first half_life values
+    for i in range(1, len(data)):
+        ema.append(alpha * data[i] + (1 - alpha) * ema[i - 1])
+    return ema
+
 def calcMovingAvg(data, window_size):
     filtered = [v for v in data if v is not None]
-    filtered = [statistics.mean(filtered[i:i+window_size]) for i in range(len(filtered)-window_size+1)]
+    averaged = exponential_moving_average(filtered, window_size)
+
+    # prepad with None for averages that have less values than original
+    #print(len(data), len(filtered), len(averaged), window_size)
+    #averaged = [None]*(len(filtered)-len(averaged)) + averaged
+
     final_result = []
     non_null_count = 0
     for i,v in enumerate(data):
         if v == None:
             final_result.append(None)
         else:
-            if (non_null_count >= window_size-1):
-                final_result.append(filtered[non_null_count-window_size])  
-            else:
-                final_result.append(None)
+            final_result.append(averaged[non_null_count])
             non_null_count += 1
     return(final_result)
 
-#print(calcMovingAvg(list(range(20))+list(range(20)), 5))
-#print()
+#print(calcMovingAvg(list([1]*20+[10]*20), 10))
+#print(calcMovingAvg(list([100]+[1]*20+[10]*20), 10))
+#print(calcMovingAvg(list([100]+[1]*20+[10]*20), 20))
 #print(calcMovingAvg(list(range(20))+[None]*5+list(range(20)), 5))
 #sys.exit()
-
 
 if fetch_data:
     if モード選択 == '四麻':
@@ -110,21 +119,15 @@ for game in reversed(X):
         if place == 4:
             gradingScoresNorm[-1] += last_place_normalize[level]
 
-moving_avg = calcMovingAvg(placements, window_size)
-gradingScoresAvgNorm = calcMovingAvg(gradingScoresNorm, window_size)
-gradingScoresAvgNorm2 = calcMovingAvg(gradingScoresNorm, window_size//2)
-gradingScoresAvgNorm4 = calcMovingAvg(gradingScoresNorm, window_size//4)
-gradingScoresAvgNorm[0] = 0
-
 # Plotting
 plt.figure(figsize=(15, 4.5))
-plt.plot(range(len(gradingScoresAvgNorm)), gradingScoresAvgNorm, label=f'Expected Score ({window_size} games)')
-plt.plot(range(len(gradingScoresAvgNorm2)), gradingScoresAvgNorm2, label=f'Expected Score ({window_size//2} games)')
-plt.plot(range(len(gradingScoresAvgNorm4)), gradingScoresAvgNorm4, label=f'Expected Score ({window_size//4} games)')
+for window_size_div in [1,2,4]:
+    tmp = calcMovingAvg(gradingScoresNorm, window_size//window_size_div)
+    plt.plot(range(len(tmp)), tmp, label=f'Expected Score ({window_size//window_size_div} games)')
 plt.legend()
 plt.title(f'Expected Score (assuming {normalize_to_rank})')
 plt.xlabel('Game Number')
-plt.xlim(0, len(gradingScoresAvgNorm))
+plt.xlim(0, len(gradingScoresNorm))
 plt.ylabel('Expected Score')
 for k,v in last_place_normalize.items():
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
