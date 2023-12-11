@@ -7,31 +7,34 @@ import pickle
 import sys
 import os
 import statistics
+from datetime import datetime, timezone
+import argparse
+
+parser = argparse.ArgumentParser(description="MJS game history graphs")
+parser.add_argument('-n', '--name', help='Username', required=True)
+parser.add_argument('-i', '--index', help='Index for multiples of the same Username', type=int, default=0)
+parser.add_argument('-u', '--update', help='Update data from server', action='store_true')
+args = parser.parse_args()
+pname = args.name
+pidx = args.index #@param {type:'integer'}
+update_cached_data = args.update
 
 #@markdown ####以下にプレイヤー名を入力し、左部の再生ボタン(▷)を押してください。
 #@markdown ####モード選択で四麻と三麻を切り替えることができます。
-プレイヤー名 = 'KillerDucky' # @param {type:"string"}
-#プレイヤー名 = 'wrathss' # @param {type:"string"}
 モード選択 = '\u56DB\u9EBB' # @param ['四麻', '三麻']
 #@markdown ####同一のプレイヤー名のIDが複数存在しており、別IDに切り替える場合は次の値を1増やしてください。
-同名ID切替 = 0 #@param {type:'integer'}
 #print(f'プレイヤー名：{プレイヤー名}')
 save_filename = "amae_pickle"
-update_cached_data = False
 cached_data_dirty = False
 cached_data = {}
 if os.path.exists(save_filename):
     with open(save_filename, "rb") as fp: cached_data = pickle.load(fp)
 
-def cached_requests(s1):
-    global cached_data_dirty
-    if update_cached_data or not s1 in cached_data:
-        if not cached_data_dirty:
-           print("requesting from server")
-        cached_data[s1] = requests.get(s1).json()
-        cached_data_dirty = True
-        time.sleep(0.01)
-    return cached_data[s1]
+#for k,v in cached_data.items():
+#    print(k)
+#    for s2 in v.keys():
+#        print(s2)
+#sys.exit()
 
 def exponential_moving_average(data, half_life):
     alpha = 1 - 0.5 ** (1 / half_life)
@@ -66,6 +69,7 @@ def calcMovingAvg(data, window_size):
 
 if モード選択 == '四麻':
     s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
+    # 12 = 4p South Jade room, 9 = 4p South Gold room
     mode = '16,15,12,11,9,8'
     Color = {16: 'r', 15: 'r', 12: 'g', 11: 'g', 9: 'y', 8: 'y'}
     pre_level = 10301
@@ -74,30 +78,49 @@ elif モード選択 == '三麻':
     mode = '26,24,22,25,23,21'
     Color = {26: 'r', 25: 'r', 24: 'g', 23: 'g', 22: 'y', 21: 'y'}
     pre_level = 20301
-pdata = cached_requests(f'{s0}search_player/{プレイヤー名}')[同名ID切替]
-pid =  pdata['id']
-start = pdata['latest_timestamp']
-X = []
-for i in range(100):
-    s1 = f'{s0}player_records/{pid}/{start}999/1262304000000?limit=500&mode={mode}&descending=true&tag='
-    games = cached_requests(s1)
-    length = len(games)
-    if length == 0:
-        break
-    print(f'({i}) 読み込み試合数: {length}')
-    start = games[-1]['startTime'] - 1
-    X += games
-    if length < 500:
-        break
 
+if update_cached_data or not pname in cached_data:
+    if not cached_data_dirty:
+        print("requesting from server")
+    cached_data_dirty = True
+    update_cached_data = True
+    cached_data[pname] = {}
+    cached_data[pname]['pdata'] = requests.get(f'{s0}search_player/{pname}').json()[pidx]
+    time.sleep(0.01)
+pdata = cached_data[pname]['pdata']
+pid = pdata['id']
+
+if update_cached_data:
+    X = []
+    start = pdata['latest_timestamp']
+    for i in range(20):
+        s1 = f'{s0}player_records/{pid}/{start}/1262304000000?limit=500&mode={mode}&descending=true&tag='
+        games = requests.get(s1).json()
+        time.sleep(0.01)
+        length = len(games)
+        if length == 0:
+            break
+        start = games[-1]['startTime'] - 1
+        X += games
+        if length < 500:
+            break
+    cached_data[pname]['X'] = X
+X = cached_data[pname]['X']
+
+# novice, adept, expert, master, saint, celestial
 d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
 level_dan = lambda level: f'{d[level // 100 % 100 - 2]}{level % 100}'
 level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 1000] * 100
-last_place_penalty = {'豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240}
+last_place_penalty = {
+   12: {'豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240},
+   9: {'傑1':-80, '傑2':-100, '傑3':-125, '豪1':-165, '豪2':-180, '豪3':-195},
+}
 normalize_to_rank = '豪1'
 # Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
-last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in last_place_penalty.items()}
+last_place_normalize = {}
+for room in last_place_penalty.keys():
+    last_place_normalize[room] = {k: last_place_penalty[room][normalize_to_rank] - v for k, v in last_place_penalty[room].items()}
 
 #print(X[0])
 #sys.exit()
@@ -110,6 +133,7 @@ last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in
 window_size = 400
 placements = []
 gradingScoresNorm = []
+gradingScoresNorm9 = []
 for game in reversed(X):
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
@@ -117,29 +141,36 @@ for game in reversed(X):
     game['placement'] = place
     placements.append(game['placement'])
     level = level_dan(players_sorted[idx]['level'])
-    if game['modeId']!=12: 
-        gradingScoresNorm.append(None)
-    else:
-        gradingScoresNorm.append(players_sorted[idx]['gradingScore'])
+    gradingScoresNorm.append(None)
+    gradingScoresNorm9.append(None)
+    if game['modeId']==12: 
+        gradingScoresNorm[-1] = players_sorted[idx]['gradingScore']
         if place == 4:
-            gradingScoresNorm[-1] += last_place_normalize[level]
+            gradingScoresNorm[-1] += last_place_normalize[game['modeId']][level]
+    elif game['modeId']==9:
+        gradingScoresNorm9[-1] = players_sorted[idx]['gradingScore']
+        if place == 4:
+            gradingScoresNorm9[-1] += last_place_normalize[game['modeId']][level]
 
 # Plotting
 plt.figure(figsize=(15, 4.5))
 for window_size_div in [1,2,4]:
     tmp = calcMovingAvg(gradingScoresNorm, window_size//window_size_div)
-    plt.plot(range(len(tmp)), tmp, label=f'Expected Score ({window_size//window_size_div} games)')
+    plt.plot(range(len(tmp)), tmp, label=f'Jade ({window_size//window_size_div} games)')
+for window_size_div in [1,2,4]:
+    tmp = calcMovingAvg(gradingScoresNorm9, window_size//window_size_div)
+    plt.plot(range(len(tmp)), tmp, label=f'Gold ({window_size//window_size_div} games)')
 plt.legend()
 plt.title(f'Expected Score (assuming {normalize_to_rank})')
 plt.xlabel('Game Number')
 plt.xlim(0, len(gradingScoresNorm))
 plt.ylabel('Expected Score')
-for k,v in last_place_normalize.items():
+for k,v in last_place_normalize[12].items():
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
-plt.savefig('Expected_Score.png')
+plt.savefig(f'Expected_Score_{pname}.png')
 
 #@markdown ####・細かい設定
 #@markdown #####「左端」と「右端」を指定すると、何戦から何戦までを表示するかを指定できます。
@@ -171,11 +202,11 @@ for i, game in enumerate(tqdm(X[::-1])):
         plt.plot([i, i+1], [base, base], color='k', lw=1.5)
         plt.plot([i, i+1], [base*2, base*2], color='k', lw=1.5)
       pre_level, pre_pt = level, pt
-plt.title(f'Rank Points Trend[{モード選択}]({プレイヤー名})', fontsize=20)
+plt.title(f'Rank Points Trend[{モード選択}]({pname})', fontsize=20)
 plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
 plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
-plt.savefig('Rank_Progress.png')
+plt.savefig(f'Rank_Progress_{pname}.png')
 
 if cached_data_dirty:
     with open(save_filename, "wb") as fp: pickle.dump(cached_data, fp)

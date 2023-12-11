@@ -1,4 +1,21 @@
-<img src=Rank_Progress.png>
-<!img src=Rank_Progress.png width="1000px">
-<br>
-<img src=Expected_Score.png style="padding-left:0x">
+<div id="imageContainer"></div>
+<script>
+    const names = [
+        "KillerDucky",
+        "mort",
+        "xsin",
+        "wrathss"
+    ]; 
+
+function generateImageHtml(name) {
+    var html = "";
+    html += `<img src="Rank_Progress_${name}.png" style="padding-left:0x"><br>`;
+    html += `<img src="Expected_Score_${name}.png" style="padding-left:0x"><br>`;
+    return html;
+}
+
+const container = document.getElementById('imageContainer');
+names.forEach(name => {
+    container.innerHTML += generateImageHtml(name);
+});
+</script>
