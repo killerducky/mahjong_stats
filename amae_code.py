@@ -13,12 +13,12 @@ import argparse
 parser = argparse.ArgumentParser(description="MJS game history graphs")
 parser.add_argument('-n', '--name', help='Username', required=True)
 parser.add_argument('-i', '--index', help='Index for multiples of the same Username', type=int, default=0)
-parser.add_argument('-u', '--update', help='Update data from server', action='store_true')
-parser.add_argument('-r', '--rank_to_normalize', help='Rank to normalize to (傑/豪/聖//E/M/S)', default='豪1')
+parser.add_argument('-c', '--cache', help='Use cached data', action='store_true')
+parser.add_argument('-r', '--rank_to_normalize', help='Rank to normalize to e.g. (傑1/豪2/聖3//E3/M2/S1)', default='豪1')
 args = parser.parse_args()
 pname = args.name
 pidx = args.index #@param {type:'integer'}
-update_cached_data = args.update
+update_cached_data = not args.cache
 normalize_to_rank = args.rank_to_normalize
 if normalize_to_rank[0] == "E": normalize_to_rank = "傑" + normalize_to_rank[1:]
 if normalize_to_rank[0] == "M": normalize_to_rank = "豪" + normalize_to_rank[1:]
@@ -117,14 +117,9 @@ d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
 level_dan = lambda level: f'{d[level // 100 % 100 - 2]}{level % 100}'
 level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 1000] * 100
-last_place_penalty = {
-    12: {'傑1':-80, '傑2':-100, '傑3':-120, '豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240},
-   9: {'傑1':-80, '傑2':-100, '傑3':-120, '豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240},
-}
+last_place_penalty = {'傑1':-80, '傑2':-100, '傑3':-120, '豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240}
 # Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
-last_place_normalize = {}
-for room in last_place_penalty.keys():
-    last_place_normalize[room] = {k: last_place_penalty[room][normalize_to_rank] - v for k, v in last_place_penalty[room].items()}
+last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in last_place_penalty.items()}
 
 #print(X[0])
 #sys.exit()
@@ -136,8 +131,7 @@ for room in last_place_penalty.keys():
 
 window_size = 400
 placements = []
-gradingScoresNorm = []
-gradingScoresNorm9 = []
+gradingScoresNorm = {9:[], 12:[]}
 for game in reversed(X):
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
@@ -145,34 +139,31 @@ for game in reversed(X):
     game['placement'] = place
     placements.append(game['placement'])
     level = level_dan(players_sorted[idx]['level'])
-    gradingScoresNorm.append(None)
-    gradingScoresNorm9.append(None)
-    if game['modeId']==12: 
-        gradingScoresNorm[-1] = players_sorted[idx]['gradingScore']
+    for v in gradingScoresNorm.values():
+        v.append(None)
+    if game['modeId']==12 or game['modeId']==9: 
+        gradingScoresNorm[game['modeId']][-1] = players_sorted[idx]['gradingScore']
         if place == 4:
-            gradingScoresNorm[-1] += last_place_normalize[game['modeId']][level]
-    elif game['modeId']==9:
-        gradingScoresNorm9[-1] = players_sorted[idx]['gradingScore']
-        if place == 4:
-            gradingScoresNorm9[-1] += last_place_normalize[game['modeId']][level]
+            gradingScoresNorm[game['modeId']][-1] += last_place_normalize[level]
 
 # Plotting
 plt.figure(figsize=(15, 4.5))
 for window_size_div in [1,2,4]:
-    tmp = calcMovingAvg(gradingScoresNorm, window_size//window_size_div)
+    tmp = calcMovingAvg(gradingScoresNorm[12], window_size//window_size_div)
     plt.plot(range(len(tmp)), tmp, label=f'Jade ({window_size//window_size_div} games)')
 for window_size_div in [1,2,4]:
-    tmp = calcMovingAvg(gradingScoresNorm9, window_size//window_size_div)
+    tmp = calcMovingAvg(gradingScoresNorm[9], window_size//window_size_div)
     plt.plot(range(len(tmp)), tmp, label=f'Gold ({window_size//window_size_div} games)')
 plt.legend()
 plt.title(f'Expected Score assuming {normalize_to_rank} ({pname})')
 plt.xlabel('Game Number')
-plt.xlim(0, len(gradingScoresNorm))
+plt.xlim(0, len(gradingScoresNorm[12]))
 plt.ylabel('Expected Score')
 plt.tick_params(labelright=True)
-for k,v in last_place_normalize[12].items():
+for k,v in last_place_normalize.items():
    if k[0] == '傑': continue
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
+   plt.text(0, v/4.0, f'{k}', color='blue', verticalalignment='bottom')
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
