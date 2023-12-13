@@ -14,10 +14,15 @@ parser = argparse.ArgumentParser(description="MJS game history graphs")
 parser.add_argument('-n', '--name', help='Username', required=True)
 parser.add_argument('-i', '--index', help='Index for multiples of the same Username', type=int, default=0)
 parser.add_argument('-u', '--update', help='Update data from server', action='store_true')
+parser.add_argument('-r', '--rank_to_normalize', help='Rank to normalize to (傑/豪/聖//E/M/S)', default='豪1')
 args = parser.parse_args()
 pname = args.name
 pidx = args.index #@param {type:'integer'}
 update_cached_data = args.update
+normalize_to_rank = args.rank_to_normalize
+if normalize_to_rank[0] == "E": normalize_to_rank = "傑" + normalize_to_rank[1:]
+if normalize_to_rank[0] == "M": normalize_to_rank = "豪" + normalize_to_rank[1:]
+if normalize_to_rank[0] == "S": normalize_to_rank = "聖" + normalize_to_rank[1:]
 
 #@markdown ####以下にプレイヤー名を入力し、左部の再生ボタン(▷)を押してください。
 #@markdown ####モード選択で四麻と三麻を切り替えることができます。
@@ -107,16 +112,15 @@ if update_cached_data:
     cached_data[pname]['X'] = X
 X = cached_data[pname]['X']
 
-# novice, adept, expert, master, saint, celestial
+# ??, expert, master, saint, celestial, ??  (novice? adept?)
 d = ['士', '傑', '豪', '聖', '天', '魂']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
 level_dan = lambda level: f'{d[level // 100 % 100 - 2]}{level % 100}'
 level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 1000] * 100
 last_place_penalty = {
-   12: {'豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240},
-   9: {'傑1':-80, '傑2':-100, '傑3':-125, '豪1':-165, '豪2':-180, '豪3':-195},
+    12: {'傑1':-80, '傑2':-100, '傑3':-120, '豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240},
+   9: {'傑1':-80, '傑2':-100, '傑3':-120, '豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240},
 }
-normalize_to_rank = '豪1'
 # Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
 last_place_normalize = {}
 for room in last_place_penalty.keys():
@@ -161,11 +165,13 @@ for window_size_div in [1,2,4]:
     tmp = calcMovingAvg(gradingScoresNorm9, window_size//window_size_div)
     plt.plot(range(len(tmp)), tmp, label=f'Gold ({window_size//window_size_div} games)')
 plt.legend()
-plt.title(f'Expected Score (assuming {normalize_to_rank})')
+plt.title(f'Expected Score assuming {normalize_to_rank} ({pname})')
 plt.xlabel('Game Number')
 plt.xlim(0, len(gradingScoresNorm))
 plt.ylabel('Expected Score')
+plt.tick_params(labelright=True)
 for k,v in last_place_normalize[12].items():
+   if k[0] == '傑': continue
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
@@ -206,6 +212,7 @@ plt.title(f'Rank Points Trend[{モード選択}]({pname})', fontsize=20)
 plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
 plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
+plt.tick_params(labelright=True)
 plt.savefig(f'Rank_Progress_{pname}.png')
 
 if cached_data_dirty:
