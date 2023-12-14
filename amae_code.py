@@ -9,26 +9,43 @@ import os
 import statistics
 from datetime import datetime, timezone
 import argparse
+import traceback
+
+# Some constants that might get added to parser:
+window_size = 400
+上端 = 3500 # Vertical max for rank points
+
+def is_interactive():
+    rstk = traceback.extract_stack(limit=1)[0]
+    return rstk[0].startswith("<ipython")
+
+if is_interactive():
+    sys.argv = [
+        'amae_code.py',
+        '-n', '',
+        '-i', 0,
+    ]
+    sys.argv[1] = '-n'
+    sys.argv[2] = 'KillerDucky' # @param
 
 parser = argparse.ArgumentParser(description="MJS game history graphs")
 parser.add_argument('-n', '--name', help='Username', required=True)
 parser.add_argument('-i', '--index', help='Index for multiples of the same Username', type=int, default=0)
 parser.add_argument('-c', '--cache', help='Use cached data', action='store_true')
-parser.add_argument('-r', '--rank_to_normalize', help='Rank to normalize to e.g. (傑1/豪2/聖3//E3/M2/S1)', default='豪1')
+parser.add_argument('-r', '--rank', help='Rank to normalize to e.g. (傑1/豪2/聖3//E3/M2/S1)', default='豪1')
+parser.add_argument('-g', '--games', help='Max games to include', type=int, default='9999')
 args = parser.parse_args()
+
 pname = args.name
-pidx = args.index #@param {type:'integer'}
+pidx = args.index
 update_cached_data = not args.cache
-normalize_to_rank = args.rank_to_normalize
+normalize_to_rank = args.rank
 if normalize_to_rank[0] == "E": normalize_to_rank = "傑" + normalize_to_rank[1:]
 if normalize_to_rank[0] == "M": normalize_to_rank = "豪" + normalize_to_rank[1:]
 if normalize_to_rank[0] == "S": normalize_to_rank = "聖" + normalize_to_rank[1:]
 
-#@markdown ####以下にプレイヤー名を入力し、左部の再生ボタン(▷)を押してください。
-#@markdown ####モード選択で四麻と三麻を切り替えることができます。
-モード選択 = '\u56DB\u9EBB' # @param ['四麻', '三麻']
-#@markdown ####同一のプレイヤー名のIDが複数存在しており、別IDに切り替える場合は次の値を1増やしてください。
-#print(f'プレイヤー名：{プレイヤー名}')
+# Only 四麻 supported
+モード選択 = '\u56DB\u9EBB' # ['四麻', '三麻']
 save_filename = "amae_pickle"
 cached_data_dirty = False
 cached_data = {}
@@ -129,7 +146,6 @@ last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in
 #             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, 
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
-window_size = 400
 placements = []
 gradingScoresNorm = {9:[], 12:[]}
 for game in reversed(X):
@@ -147,23 +163,24 @@ for game in reversed(X):
             gradingScoresNorm[game['modeId']][-1] += last_place_normalize[level]
 
 # Plotting
+x_start = max(0, len(X) - args.games)
 plt.figure(figsize=(15, 4.5))
 for window_size_div in [1,2,4]:
     tmp = calcMovingAvg(gradingScoresNorm[12], window_size//window_size_div)
-    plt.plot(range(len(tmp)), tmp, label=f'Jade ({window_size//window_size_div} games)')
+    plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'Jade ({window_size//window_size_div} games)')
 for window_size_div in [1,2,4]:
     tmp = calcMovingAvg(gradingScoresNorm[9], window_size//window_size_div)
-    plt.plot(range(len(tmp)), tmp, label=f'Gold ({window_size//window_size_div} games)')
+    plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'Gold ({window_size//window_size_div} games)')
 plt.legend()
 plt.title(f'Expected Score assuming {normalize_to_rank} ({pname})')
 plt.xlabel('Game Number')
-plt.xlim(0, len(gradingScoresNorm[12]))
+plt.xlim(x_start, len(gradingScoresNorm[12]))
 plt.ylabel('Expected Score')
 plt.tick_params(labelright=True)
 for k,v in last_place_normalize.items():
    if k[0] == '傑': continue
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
-   plt.text(0, v/4.0, f'{k}', color='blue', verticalalignment='bottom')
+   plt.text(x_start, v/4.0, f'{k}', color='blue', verticalalignment='bottom')
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
@@ -175,12 +192,13 @@ plt.savefig(f'Expected_Score_{pname}.png')
 左端 = 0 # @param {type: 'integer'} # default = 0
 右端 = 100000 # @param {type: 'integer'} # default = 1000000
 #@markdown #####「上端」を指定すると、縦軸のポイント表示の上限を変更できます。
-上端 = 3500 # @param {type: 'integer'} # default = 10000
 
 plt.figure(facecolor='w', figsize=(15, 5))
 if 左端 == 0:
   plt.text(3, 100, f'傑\n1', fontsize=12)
 pre_pt, pt, base = 600, 600, 600
+if len(X) > args.games:
+    X = X[:-x_start]
 for i, game in enumerate(tqdm(X[::-1])):
   for data in game['players']:
     if data['accountId'] == pid:
