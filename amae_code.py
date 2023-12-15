@@ -11,27 +11,69 @@ from datetime import datetime, timezone
 import argparse
 import traceback
 
+# @markdown # Mahjong Soul Expected Score moving average
+# @markdown Based on [Original collab script](https://colab.research.google.com/drive/1puwnp-_k3aHV8trHYInX9HGsBgnJ-hYY#scrollTo=Uoyjy8mCJ21c)
+# @markdown This script adds a graph that shows a moving average of your expeted score.
+# @markdown There are several moving averages that respond more or less quickly.
+# @markdown
+# @markdown Averages for Gold room and Jade room are kept separately because
+# @markdown the player pools are different.
+# @markdown
+# @markdown Currently only 4 player Hanchan is supported.
+# @markdown
+# @markdown Usage is similar to the original script,
+# @markdown put your username (and idx if needed) and click the run cell button.
+# @markdown
+# @markdown ---
+
+def notebook_params():
+    name = 'KillerDucky' # @param {type:"string"}
+    idx = 0 # @param {type:"integer"}
+    # @markdown All scores will be normalized as if you played all games as this rank (M1 by default)
+    # @markdown
+    # @markdown See below for more details
+    norm_rank = 'M1' # @param {type:"string"}
+    return [
+        'amae_code.py', # fake filename
+        '-n', name,
+        '-i', idx,
+        '-r', norm_rank
+    ]
+
 # Some constants that might get added to parser:
 window_size = 400
-上端 = 3500 # Vertical max for rank points
+上端 = 5000 # @param {type:'integer'} # Vertical max for rank points
+左端 = 0 # @param {type: 'integer'} # default = 0
+右端 = 100000 # @param {type: 'integer'} # default = 1000000
+
+# @markdown ---
+# @markdown ## The Blue lines and Normalization
+# @markdown The horizontal blue lines represent approximately what level you must
+# @markdown play to be a breakeven player of a certain rank.
+# @markdown It takes all 4th place results and recalculates the penalty as if you were (by default) M1.
+# @markdown So if your expected score is near 0, you are near a breakeven M1.
+# @markdown
+# @markdown The blue lines take the difference in 4th place penalty between M1
+# @markdown and the higher ranks and divide by 4.
+# @markdown
+# @markdown * M1 4th = -165, S3 4th = -240
+# @markdown * (240-165)/4 = 18.75
+# @markdown * So a player with S3 skill playing as M1 will expect to score 18.75 points on average
+# @markdown * This is where the S3 blue line is drawn
+# @markdown * Typically this is a slight overestimate because strong players have less than 25% 4ths
 
 def is_interactive():
     rstk = traceback.extract_stack(limit=1)[0]
     return rstk[0].startswith("<ipython")
 
 if is_interactive():
-    sys.argv = [
-        'amae_code.py',
-        '-n', '',
-        '-i', 0,
-    ]
-    sys.argv[1] = '-n'
-    sys.argv[2] = 'KillerDucky' # @param
+    sys.argv = notebook_params()
 
 parser = argparse.ArgumentParser(description="MJS game history graphs")
 parser.add_argument('-n', '--name', help='Username', required=True)
 parser.add_argument('-i', '--index', help='Index for multiples of the same Username', type=int, default=0)
-parser.add_argument('-c', '--cache', help='Use cached data', action='store_true')
+# For faster development only: use results from file instead of asking server
+parser.add_argument('-c', '--cache', help='Use cached data', action='store_true') 
 parser.add_argument('-r', '--rank', help='Rank to normalize to e.g. (傑1/豪2/聖3//E3/M2/S1)', default='豪1')
 parser.add_argument('-g', '--games', help='Max games to include', type=int, default='9999')
 args = parser.parse_args()
@@ -40,9 +82,15 @@ pname = args.name
 pidx = args.index
 update_cached_data = not args.cache
 normalize_to_rank = args.rank
-if normalize_to_rank[0] == "E": normalize_to_rank = "傑" + normalize_to_rank[1:]
-if normalize_to_rank[0] == "M": normalize_to_rank = "豪" + normalize_to_rank[1:]
-if normalize_to_rank[0] == "S": normalize_to_rank = "聖" + normalize_to_rank[1:]
+class DefaultKeyDict(dict):
+    def __missing__(self, key):
+        return key
+jp2en = DefaultKeyDict({
+    '士':'?', '傑':'E', '豪':'M', '聖':'S', '天':'C', '魂':'?',
+    '四麻':'4P', '三麻':'3P',
+})
+en2jp = DefaultKeyDict({value: key for key, value in jp2en.items()})
+normalize_to_rank = jp2en[normalize_to_rank[0]] + normalize_to_rank[1:]
 
 # Only 四麻 supported
 モード選択 = '\u56DB\u9EBB' # ['四麻', '三麻']
@@ -51,12 +99,6 @@ cached_data_dirty = False
 cached_data = {}
 if os.path.exists(save_filename):
     with open(save_filename, "rb") as fp: cached_data = pickle.load(fp)
-
-#for k,v in cached_data.items():
-#    print(k)
-#    for s2 in v.keys():
-#        print(s2)
-#sys.exit()
 
 def exponential_moving_average(data, half_life):
     alpha = 1 - 0.5 ** (1 / half_life)
@@ -91,7 +133,8 @@ def calcMovingAvg(data, window_size):
 
 if モード選択 == '四麻':
     s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
-    # 12 = 4p South Jade room, 9 = 4p South Gold room
+    # 12 = 4p Hanchan Jade room, 9 = 4p Hanchan Gold room
+    # 11 = 4p Tonpuusen Jade room, 8 = 4p Tonpuusent Gold room
     mode = '16,15,12,11,9,8'
     Color = {16: 'r', 15: 'r', 12: 'g', 11: 'g', 9: 'y', 8: 'y'}
     pre_level = 10301
@@ -129,25 +172,33 @@ if update_cached_data:
     cached_data[pname]['X'] = X
 X = cached_data[pname]['X']
 
-# ??, expert, master, saint, celestial, ??  (novice? adept?)
-d = ['士', '傑', '豪', '聖', '天', '魂']
+#d = ['士', '傑', '豪', '聖', '天', '魂']
+d = ['?', 'E', 'M', 'S', 'C', '?']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
 level_dan = lambda level: f'{d[level // 100 % 100 - 2]}{level % 100}'
 level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 1000] * 100
-last_place_penalty = {'傑1':-80, '傑2':-100, '傑3':-120, '豪1':-165, '豪2':-180, '豪3':-195, '聖1':-210, '聖2':-225, '聖3':-240}
-# Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
-last_place_normalize = {k: last_place_penalty[normalize_to_rank] - v for k, v in last_place_penalty.items()}
+last_place_penalty = {
+    'H': {'E1':-80, 'E2':-100, 'E3':-120, 'M1':-165, 'M2':-180, 'M3':-195, 'S1':-210, 'S2':-225, 'S3':-240},
+    'T':  {'E1':-40, 'E2':-50, 'E3':-60, 'M1':-80, 'M2':-90, 'M3':-100, 'S1':-110, 'S2':-120, 'S3':-130}
+}
+last_place_normalize = {}
+for type in last_place_penalty.keys():
+    # Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
+    last_place_normalize[type] = {k: last_place_penalty[type][normalize_to_rank] - v for k, v in last_place_penalty[type].items()}
 
 #print(X[0])
 #sys.exit()
-#{'_id': '8hrogmr7Bst', 'modeId': 12, 'uuid': '231203-47ff6d0f-f4c0-4f8f-9205-a714768c7e37', 'startTime': 1701582266, 'endTime': 1701584735, 
-# 'players': [{'accountId': 68010342, 'nickname': 'mizuki11', 'level': 10402, 'score': 13200, 'gradingScore': -206}, 
-#             {'accountId': 120517763, 'nickname': 'KillerDucky', 'level': 10401, 'score': 20300, 'gradingScore': -9}, 
-#             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65}, 
+#{'_id': '8hrogmr7Bst', 'modeId': 12, 'uuid': '231203-47ff6d0f-f4c0-4f8f-9205-a714768c7e37', 'startTime': 1701582266, 'endTime': 1701584735,
+# 'players': [{'accountId': 68010342, 'nickname': 'mizuki11', 'level': 10402, 'score': 13200, 'gradingScore': -206},
+#             {'accountId': 120517763, 'nickname': 'KillerDucky', 'level': 10401, 'score': 20300, 'gradingScore': -9},
+#             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65},
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
 placements = []
-gradingScoresNorm = {9:[], 12:[]}
+#gradingScoresNorm = {9:[], 12:[]}
+gradingScoresNorm = {'G':[], 'J':[]}
+modeId2RoomColor = {12:'G', 11:'G', 9:'J', 8:'J'} # Gold or Jade
+modeId2RoomLength = {12:'H', 11:'T', 9:'H', 8:'T'}  # Hanchan (South) or Tonpuusen (East)
 for game in reversed(X):
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
@@ -157,28 +208,27 @@ for game in reversed(X):
     level = level_dan(players_sorted[idx]['level'])
     for v in gradingScoresNorm.values():
         v.append(None)
-    if game['modeId']==12 or game['modeId']==9: 
-        gradingScoresNorm[game['modeId']][-1] = players_sorted[idx]['gradingScore']
+    if game['modeId'] in modeId2RoomColor:
+        gradingScoresNorm[modeId2RoomColor[game['modeId']]][-1] = players_sorted[idx]['gradingScore']
         if place == 4:
-            gradingScoresNorm[game['modeId']][-1] += last_place_normalize[level]
+            gradingScoresNorm[modeId2RoomColor[game['modeId']]][-1] += last_place_normalize[modeId2RoomLength[game['modeId']]][level]
 
 # Plotting
 x_start = max(0, len(X) - args.games)
 plt.figure(figsize=(15, 4.5))
-for window_size_div in [1,2,4]:
-    tmp = calcMovingAvg(gradingScoresNorm[12], window_size//window_size_div)
-    plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'Jade ({window_size//window_size_div} games)')
-for window_size_div in [1,2,4]:
-    tmp = calcMovingAvg(gradingScoresNorm[9], window_size//window_size_div)
-    plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'Gold ({window_size//window_size_div} games)')
+for roomType in gradingScoresNorm.keys():
+    for window_size_div in [1,2,4]:
+        tmp = calcMovingAvg(gradingScoresNorm[roomType], window_size//window_size_div)
+        plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'Jade ({window_size//window_size_div} games)')
 plt.legend()
 plt.title(f'Expected Score assuming {normalize_to_rank} ({pname})')
 plt.xlabel('Game Number')
-plt.xlim(x_start, len(gradingScoresNorm[12]))
+plt.xlim(x_start, len(gradingScoresNorm['G']))
 plt.ylabel('Expected Score')
 plt.tick_params(labelright=True)
-for k,v in last_place_normalize.items():
-   if k[0] == '傑': continue
+for k,v in last_place_normalize['H'].items():
+   # Experts cannot play in both Jade and Gold, making it hard to draw a line for this
+   if k[0] == 'E': continue
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
    plt.text(x_start, v/4.0, f'{k}', color='blue', verticalalignment='bottom')
 #ax2 = plt.twinx()
@@ -186,12 +236,8 @@ for k,v in last_place_normalize.items():
 #ax2.set_ylabel('score', color='orange')
 plt.savefig(f'Expected_Score_{pname}.png')
 
-#@markdown ####・細かい設定
-#@markdown #####「左端」と「右端」を指定すると、何戦から何戦までを表示するかを指定できます。
-#@markdown #####※右端は適当な大きな数を入れておくと最後まで表示します。
-左端 = 0 # @param {type: 'integer'} # default = 0
-右端 = 100000 # @param {type: 'integer'} # default = 1000000
-#@markdown #####「上端」を指定すると、縦軸のポイント表示の上限を変更できます。
+# blank figure for spacing
+plt.figure(figsize=(15, 1))
 
 plt.figure(facecolor='w', figsize=(15, 5))
 if 左端 == 0:
@@ -217,7 +263,7 @@ for i, game in enumerate(tqdm(X[::-1])):
         plt.plot([i, i+1], [base, base], color='k', lw=1.5)
         plt.plot([i, i+1], [base*2, base*2], color='k', lw=1.5)
       pre_level, pre_pt = level, pt
-plt.title(f'Rank Points Trend[{モード選択}]({pname})', fontsize=20)
+plt.title(f'Rank Points Trend[{jp2en[モード選択]}]({pname})', fontsize=20)
 plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
 plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
