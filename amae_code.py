@@ -13,26 +13,24 @@ import traceback
 
 # @markdown # Mahjong Soul Expected Score moving average
 # @markdown Based on [Original collab script](https://colab.research.google.com/drive/1puwnp-_k3aHV8trHYInX9HGsBgnJ-hYY#scrollTo=Uoyjy8mCJ21c)
+# @markdown
 # @markdown This script adds a graph that shows a moving average of your expeted score.
 # @markdown There are several moving averages that respond more or less quickly.
 # @markdown
 # @markdown Averages for Gold room and Jade room are kept separately because
 # @markdown the player pools are different.
 # @markdown
-# @markdown Currently only 4 player Hanchan is supported.
+# @markdown Only 4 player is supported.
 # @markdown
-# @markdown Usage is similar to the original script,
-# @markdown put your username (and idx if needed) and click the run cell button.
+# @markdown Usage: put your username (and idx if needed) and click the run cell button.
 # @markdown
 # @markdown ---
 
 def notebook_params():
-    name = 'KillerDucky' # @param {type:"string"}
+    name = '' # @param {type:"string"}
     idx = 0 # @param {type:"integer"}
-    # @markdown All scores will be normalized as if you played all games as this rank (M1 by default)
-    # @markdown
-    # @markdown See below for more details
-    norm_rank = 'M1' # @param {type:"string"}
+    # @markdown All scores normalized to this rank. See below for more details
+    norm_rank = "M1" # @param ["M1", "M2", "M3", "S1", "S2", "S3"] {type:"string"}
     return [
         'amae_code.py', # fake filename
         '-n', name,
@@ -73,7 +71,7 @@ parser = argparse.ArgumentParser(description="MJS game history graphs")
 parser.add_argument('-n', '--name', help='Username', required=True)
 parser.add_argument('-i', '--index', help='Index for multiples of the same Username', type=int, default=0)
 # For faster development only: use results from file instead of asking server
-parser.add_argument('-c', '--cache', help='Use cached data', action='store_true') 
+parser.add_argument('-c', '--cache', help='Use cached data', action='store_true')
 parser.add_argument('-r', '--rank', help='Rank to normalize to e.g. (傑1/豪2/聖3//E3/M2/S1)', default='豪1')
 parser.add_argument('-g', '--games', help='Max games to include', type=int, default='9999')
 args = parser.parse_args()
@@ -195,7 +193,6 @@ for type in last_place_penalty.keys():
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
 placements = []
-#gradingScoresNorm = {9:[], 12:[]}
 gradingScoresNorm = {'G':[], 'J':[]}
 modeId2RoomColor = {12:'G', 11:'G', 9:'J', 8:'J'} # Gold or Jade
 modeId2RoomLength = {12:'H', 11:'T', 9:'H', 8:'T'}  # Hanchan (South) or Tonpuusen (East)
