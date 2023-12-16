@@ -31,18 +31,32 @@ def notebook_params():
     idx = 0 # @param {type:"integer"}
     # @markdown All scores normalized to this rank. See below for more details
     norm_rank = "M1" # @param ["M1", "M2", "M3", "S1", "S2", "S3"] {type:"string"}
+    # To reduce clutter, you can filter which game types are shown
+    jade_south = True # @param {type:"boolean"}
+    jade_east = True # @param {type:"boolean"}
+    gold_south = True # @param {type:"boolean"}
+    gold_east = True # @param {type:"boolean"}
+    # @markdown Exclude game types played less than X% of the time
+    min_percent_game_type = 5 # @param {type:"number"}
+    max_games = 9999 # @param {type:"number"}
     return [
         'amae_code.py', # fake filename
         '-n', name,
         '-i', idx,
-        '-r', norm_rank
+        '-r', norm_rank,
+        '--no_js', not jade_south,
+        '--no_je', not jade_east,
+        '--no_gs', not gold_south,
+        '--no_ge', not gold_east,
+        '--min_percent_game_type', min_percent_game_type,
+        '--max_games', max_games,
     ]
 
 # Some constants that might get added to parser:
 window_size = 400
 上端 = 5000 # @param {type:'integer'} # Vertical max for rank points
-左端 = 0 # @param {type: 'integer'} # default = 0
-右端 = 100000 # @param {type: 'integer'} # default = 1000000
+左端 = 0
+右端 = 100000
 
 # @markdown ---
 # @markdown ## The Blue lines and Normalization
@@ -56,9 +70,9 @@ window_size = 400
 # @markdown
 # @markdown * M1 4th = -165, S3 4th = -240
 # @markdown * (240-165)/4 = 18.75
-# @markdown * So a player with S3 skill playing as M1 will expect to score 18.75 points on average
+# @markdown * A player with S3 skill playing as M1 will score 18.75 points on average
 # @markdown * This is where the S3 blue line is drawn
-# @markdown * Typically this is a slight overestimate because strong players have less than 25% 4ths
+# @markdown * Typically an overestimate because strong players have less than 25% 4ths
 
 def is_interactive():
     rstk = traceback.extract_stack(limit=1)[0]
@@ -73,7 +87,12 @@ parser.add_argument('-i', '--index', help='Index for multiples of the same Usern
 # For faster development only: use results from file instead of asking server
 parser.add_argument('-c', '--cache', help='Use cached data', action='store_true')
 parser.add_argument('-r', '--rank', help='Rank to normalize to e.g. (傑1/豪2/聖3//E3/M2/S1)', default='豪1')
-parser.add_argument('-g', '--games', help='Max games to include', type=int, default='9999')
+parser.add_argument('-g', '--max_games', help='Max games to include', type=int, default='9999')
+parser.add_argument('--no_js', action='store_true')
+parser.add_argument('--no_je', action='store_true')
+parser.add_argument('--no_gs', action='store_true')
+parser.add_argument('--no_ge', action='store_true')
+parser.add_argument('--min_percent_game_type', default=5, type=float)
 args = parser.parse_args()
 
 pname = args.name
@@ -108,11 +127,6 @@ def exponential_moving_average(data, half_life):
 def calcMovingAvg(data, window_size):
     filtered = [v for v in data if v is not None]
     averaged = exponential_moving_average(filtered, window_size)
-
-    # prepad with None for averages that have less values than original
-    #print(len(data), len(filtered), len(averaged), window_size)
-    #averaged = [None]*(len(filtered)-len(averaged)) + averaged
-
     final_result = []
     non_null_count = 0
     for i,v in enumerate(data):
@@ -122,12 +136,6 @@ def calcMovingAvg(data, window_size):
             final_result.append(averaged[non_null_count])
             non_null_count += 1
     return(final_result)
-
-#print(calcMovingAvg(list([1]*20+[10]*20), 10))
-#print(calcMovingAvg(list([100]+[1]*20+[10]*20), 10))
-#print(calcMovingAvg(list([100]+[1]*20+[10]*20), 20))
-#print(calcMovingAvg(list(range(20))+[None]*5+list(range(20)), 5))
-#sys.exit()
 
 if モード選択 == '四麻':
     s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
@@ -176,16 +184,14 @@ p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 
 level_dan = lambda level: f'{d[level // 100 % 100 - 2]}{level % 100}'
 level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 1000] * 100
 last_place_penalty = {
-    'H': {'E1':-80, 'E2':-100, 'E3':-120, 'M1':-165, 'M2':-180, 'M3':-195, 'S1':-210, 'S2':-225, 'S3':-240},
-    'T':  {'E1':-40, 'E2':-50, 'E3':-60, 'M1':-80, 'M2':-90, 'M3':-100, 'S1':-110, 'S2':-120, 'S3':-130}
+    'S': {'E1':-80, 'E2':-100, 'E3':-120, 'M1':-165, 'M2':-180, 'M3':-195, 'S1':-210, 'S2':-225, 'S3':-240},
+    'E':  {'E1':-40, 'E2':-50, 'E3':-60, 'M1':-80, 'M2':-90, 'M3':-100, 'S1':-110, 'S2':-120, 'S3':-130}
 }
 last_place_normalize = {}
 for type in last_place_penalty.keys():
     # Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
     last_place_normalize[type] = {k: last_place_penalty[type][normalize_to_rank] - v for k, v in last_place_penalty[type].items()}
 
-#print(X[0])
-#sys.exit()
 #{'_id': '8hrogmr7Bst', 'modeId': 12, 'uuid': '231203-47ff6d0f-f4c0-4f8f-9205-a714768c7e37', 'startTime': 1701582266, 'endTime': 1701584735,
 # 'players': [{'accountId': 68010342, 'nickname': 'mizuki11', 'level': 10402, 'score': 13200, 'gradingScore': -206},
 #             {'accountId': 120517763, 'nickname': 'KillerDucky', 'level': 10401, 'score': 20300, 'gradingScore': -9},
@@ -193,9 +199,10 @@ for type in last_place_penalty.keys():
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
 placements = []
-gradingScoresNorm = {'G':[], 'J':[]}
+gradingScoresNorm = {12:[], 11:[], 9:[], 8:[]}
+modeId2RoomTypeFull = {12:'Jade S', 11:'Jade E', 9:'Gold S', 8:'Gold E'} 
 modeId2RoomColor = {12:'G', 11:'G', 9:'J', 8:'J'} # Gold or Jade
-modeId2RoomLength = {12:'H', 11:'T', 9:'H', 8:'T'}  # Hanchan (South) or Tonpuusen (East)
+modeId2RoomLength = {12:'S', 11:'E', 9:'S', 8:'E'} # Hanchan (South) or Tonpuusen (East)
 for game in reversed(X):
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
@@ -206,42 +213,54 @@ for game in reversed(X):
     for v in gradingScoresNorm.values():
         v.append(None)
     if game['modeId'] in modeId2RoomColor:
-        gradingScoresNorm[modeId2RoomColor[game['modeId']]][-1] = players_sorted[idx]['gradingScore']
+        gradingScoresNorm[game['modeId']][-1] = players_sorted[idx]['gradingScore']
         if place == 4:
-            gradingScoresNorm[modeId2RoomColor[game['modeId']]][-1] += last_place_normalize[modeId2RoomLength[game['modeId']]][level]
+            gradingScoresNorm[game['modeId']][-1] += last_place_normalize[modeId2RoomLength[game['modeId']]][level]
 
 # Plotting
-x_start = max(0, len(X) - args.games)
+x_start = max(0, len(X) - args.max_games)
 plt.figure(figsize=(15, 4.5))
+mostCommonRoomType = {'t':None, 'count':0}
 for roomType in gradingScoresNorm.keys():
     for window_size_div in [1,2,4]:
+        # Don't graph if player has very few of this type, or user filtered
+        count = len([element for element in gradingScoresNorm[roomType] if element is not None])
+        if count/len(gradingScoresNorm[roomType]) < args.min_percent_game_type/100.0: continue
+        if modeId2RoomTypeFull[roomType] == 'Jade S' and args.no_js: continue
+        if modeId2RoomTypeFull[roomType] == 'Jade E' and args.no_je: continue
+        if modeId2RoomTypeFull[roomType] == 'Gold S' and args.no_gs: continue
+        if modeId2RoomTypeFull[roomType] == 'Gold E' and args.no_ge: continue
+        if count > mostCommonRoomType['count']:
+            mostCommonRoomType = {'t':roomType, 'count':count}
         tmp = calcMovingAvg(gradingScoresNorm[roomType], window_size//window_size_div)
-        plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'Jade ({window_size//window_size_div} games)')
+        plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'{modeId2RoomTypeFull[roomType]} ({window_size//window_size_div} games)')
 plt.legend()
 plt.title(f'Expected Score assuming {normalize_to_rank} ({pname})')
 plt.xlabel('Game Number')
-plt.xlim(x_start, len(gradingScoresNorm['G']))
+plt.xlim(x_start, len(X))
 plt.ylabel('Expected Score')
 plt.tick_params(labelright=True)
-for k,v in last_place_normalize['H'].items():
+for k,v in last_place_normalize[modeId2RoomLength[mostCommonRoomType['t']]].items():
    # Experts cannot play in both Jade and Gold, making it hard to draw a line for this
    if k[0] == 'E': continue
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
-   plt.text(x_start, v/4.0, f'{k}', color='blue', verticalalignment='bottom')
+   plt.text(x_start, v/4.0, f'{k} {modeId2RoomLength[mostCommonRoomType['t']]}', color='blue', verticalalignment='bottom')
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
 plt.savefig(f'Expected_Score_{pname}.png')
 
 # blank figure for spacing
-plt.figure(figsize=(15, 1))
+f,ax = plt.subplots()
+f.set_visible(False)
+f.set_figheight(0.25)
+f.set_figwidth(0.01)
 
 plt.figure(facecolor='w', figsize=(15, 5))
+左端 = x_start
 if 左端 == 0:
   plt.text(3, 100, f'傑\n1', fontsize=12)
 pre_pt, pt, base = 600, 600, 600
-if len(X) > args.games:
-    X = X[:-x_start]
 for i, game in enumerate(tqdm(X[::-1])):
   for data in game['players']:
     if data['accountId'] == pid:
