@@ -14,7 +14,7 @@ import traceback
 # @markdown # Mahjong Soul Expected Score moving average
 # @markdown Based on [Original collab script](https://colab.research.google.com/drive/1puwnp-_k3aHV8trHYInX9HGsBgnJ-hYY#scrollTo=Uoyjy8mCJ21c)
 # @markdown
-# @markdown This script adds a graph that shows a moving average of your expeted score.
+# @markdown This script adds a graph that shows a moving average of your expected score.
 # @markdown There are several moving averages that respond more or less quickly.
 # @markdown
 # @markdown Averages for Gold room and Jade room are kept separately because
@@ -39,18 +39,19 @@ def notebook_params():
     # @markdown Exclude game types played less than X% of the time
     min_percent_game_type = 5 # @param {type:"number"}
     max_games = 9999 # @param {type:"number"}
-    return [
+    args = [
         'amae_code.py', # fake filename
         '-n', name,
         '-i', idx,
         '-r', norm_rank,
-        '--no_js', not jade_south,
-        '--no_je', not jade_east,
-        '--no_gs', not gold_south,
-        '--no_ge', not gold_east,
-        '--min_percent_game_type', min_percent_game_type,
-        '--max_games', max_games,
+        '--min_percent_game_type', str(min_percent_game_type),
+        '--max_games', str(max_games),
     ]
+    if not jade_south: args.append('--no_js')
+    if not jade_east: args.append('--no_je')
+    if not gold_south: args.append('--no_gs')
+    if not gold_east: args.append('--no_ge')
+    return args
 
 # Some constants that might get added to parser:
 window_size = 400
@@ -73,6 +74,10 @@ window_size = 400
 # @markdown * A player with S3 skill playing as M1 will score 18.75 points on average
 # @markdown * This is where the S3 blue line is drawn
 # @markdown * Typically an overestimate because strong players have less than 25% 4ths
+# @markdown
+# @markdown
+# @markdown East games gain/lose ~50% less points compared to South games.
+# @markdown The blue lines will be drawn according to the game type with the most data.
 
 def is_interactive():
     rstk = traceback.extract_stack(limit=1)[0]
@@ -244,7 +249,7 @@ for k,v in last_place_normalize[modeId2RoomLength[mostCommonRoomType['t']]].item
    # Experts cannot play in both Jade and Gold, making it hard to draw a line for this
    if k[0] == 'E': continue
    plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
-   plt.text(x_start, v/4.0, f'{k} {modeId2RoomLength[mostCommonRoomType['t']]}', color='blue', verticalalignment='bottom')
+   plt.text(x_start, v/4.0, f'{k} {modeId2RoomLength[mostCommonRoomType["t"]]}', color='blue', verticalalignment='bottom')
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
