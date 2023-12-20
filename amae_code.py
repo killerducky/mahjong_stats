@@ -7,15 +7,17 @@ import pickle
 import sys
 import os
 import statistics
+import math
 from datetime import datetime, timezone
 import argparse
 import traceback
 
-# @markdown # Mahjong Soul Expected Score moving average
+# @markdown # Mahjong Soul Expected Score per round
 # @markdown Based on [Original collab script](https://colab.research.google.com/drive/1puwnp-_k3aHV8trHYInX9HGsBgnJ-hYY#scrollTo=Uoyjy8mCJ21c)
 # @markdown
-# @markdown This script adds a graph that shows a moving average of your expected score.
-# @markdown There are several moving averages that respond more or less quickly.
+# @markdown This script adds a graph that shows a moving average of your expected score
+# @markdown per round played.
+# @markdown There are several averages that respond more or less quickly.
 # @markdown
 # @markdown Averages for Gold room and Jade room are kept separately because
 # @markdown the player pools are different.
@@ -192,6 +194,18 @@ last_place_penalty = {
     'S': {'E1':-80, 'E2':-100, 'E3':-120, 'M1':-165, 'M2':-180, 'M3':-195, 'S1':-210, 'S2':-225, 'S3':-240},
     'E':  {'E1':-40, 'E2':-50, 'E3':-60, 'M1':-80, 'M2':-90, 'M3':-100, 'S1':-110, 'S2':-120, 'S3':-130}
 }
+rank_bonus = {
+    'Jade S': [110, 55, 0, 0],
+    'Jade E': [55, 30, 0, 0],
+    'Gold S': [80, 40, 0, 0],
+    'Gold E': [40, 20, 0, 0],
+}
+copper_rate = {
+    'Jade S' : 280,
+    'Jade E' : 200,
+    'Gold S' : 140,
+    'Gold E' : 100,
+}
 last_place_normalize = {}
 for type in last_place_penalty.keys():
     # Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
@@ -203,44 +217,96 @@ for type in last_place_penalty.keys():
 #             {'accountId': 102431826, 'nickname': 'とみー5327', 'level': 10403, 'score': 29900, 'gradingScore': 65},
 #             {'accountId': 72871121, 'nickname': 'kikuminn', 'level': 10401, 'score': 36600, 'gradingScore': 137}]}
 
+# Convert level to some scalar value that represents how hard they are to play against
+# M1=3, S1=6, S3=8
+# So S1 is roughly twice as hard as a M1
+def p_skill_score(level_int):
+    # E=-1, M=0, S=1
+    score = level_int // 100 % 100 - 4
+    # E=-3, M=0, S=3
+    score = score*3
+    # E1=-3, E2=-2, E3=-1, M1=0, M2=1, M3=2, S1=3, S2=4, S3=5
+    score += level_int % 100 - 1
+    return score
+
 placements = []
-gradingScoresNorm = {12:[], 11:[], 9:[], 8:[]}
 modeId2RoomTypeFull = {12:'Jade S', 11:'Jade E', 9:'Gold S', 8:'Gold E'} 
-modeId2RoomColor = {12:'G', 11:'G', 9:'J', 8:'J'} # Gold or Jade
+modeId2RoomColor = {12:'J', 11:'J', 9:'G', 8:'G'} # Gold or Jade
 modeId2RoomLength = {12:'S', 11:'E', 9:'S', 8:'E'} # Hanchan (South) or Tonpuusen (East)
+tableDifficultyBins = {}
+
+def addGradingScoresNorm(game):
+    p = game['players'][game['orig_idx']]
+    game['gradingScoresNorm'] = None
+    if game['modeId'] in modeId2RoomColor:
+        game['gradingScoresNorm'] = p['gradingScore']
+        if game['placement'] == 4:
+            game['gradingScoresNorm'] += last_place_normalize[modeId2RoomLength[game['modeId']]][level_dan(p['level'])]
+
+def addCopper(game):
+    p = game['players'][game['orig_idx']]
+    game['copper'] = game['gradingScoresNorm']
+    game['copper'] = p['gradingScore'] - rank_bonus[modeId2RoomTypeFull[game['modeId']]][game['placement']-1]
+    if game['placement'] == 4:
+        game['copper'] -= last_place_penalty[modeId2RoomLength[game['modeId']]][level]
+    game['copper'] *= copper_rate[modeId2RoomTypeFull[game['modeId']]]
+
 for game in reversed(X):
+    game['orig_idx'] = game['players'].index(next(player for player in game['players'] if player['accountId'] == pid))
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
     place = 4 - idx
     game['placement'] = place
+    game['tableDifficulty'] = 0
+    if game['modeId'] in modeId2RoomColor and modeId2RoomColor[game['modeId']] == 'J':
+        for player in players_sorted:
+            if player['accountId'] == pid: continue
+            game['tableDifficulty'] += p_skill_score(player['level'])
+        # Compress to fewer bins
+        game['tableDifficulty'] = min(game['tableDifficulty']//2, 4)
+        #game['tableDifficulty'] = 0 if game['tableDifficulty'] < 15 else 1
+        if game['tableDifficulty'] not in tableDifficultyBins:
+            tableDifficultyBins[game['tableDifficulty']] = {'sum':0, 'count':0}
+        tableDifficultyBins[game['tableDifficulty']]['sum'] += players_sorted[idx]['gradingScore']
+        tableDifficultyBins[game['tableDifficulty']]['count'] += 1
     placements.append(game['placement'])
     level = level_dan(players_sorted[idx]['level'])
-    for v in gradingScoresNorm.values():
-        v.append(None)
-    if game['modeId'] in modeId2RoomColor:
-        gradingScoresNorm[game['modeId']][-1] = players_sorted[idx]['gradingScore']
-        if place == 4:
-            gradingScoresNorm[game['modeId']][-1] += last_place_normalize[modeId2RoomLength[game['modeId']]][level]
+    addGradingScoresNorm(game)
+    addCopper(game)
+
+for k,v in sorted(tableDifficultyBins.items()):
+    v['avg'] = v['sum']/v['count']
+    #print(k, v['count'], v['avg'], 2*math.sqrt(13000/v['count']))
+
+#plt.figure()
+#plt.scatter(sorted(tableDifficultyBins.keys()), [v['avg'] for k,v in sorted(tableDifficultyBins.items())])
+#plt.errorbar(sorted(tableDifficultyBins.keys()), [v['avg'] for k,v in sorted(tableDifficultyBins.items())], 
+#             yerr=[2*math.sqrt(13000/v['count']) for k,v in sorted(tableDifficultyBins.items())])
+#plt.axhline(y=0, alpha=1, linewidth=0.5)
+#plt.show()
 
 # Plotting
 x_start = max(0, len(X) - args.max_games)
 plt.figure(figsize=(15, 4.5))
 mostCommonRoomType = {'t':None, 'count':0}
-for roomType in gradingScoresNorm.keys():
+
+for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
+    attr = list(reversed([None if game['modeId']!=roomTypeInt else game['gradingScoresNorm'] for game in X]))
+    #attr = list(reversed([None if game['modeId']!=roomTypeInt else game['copper'] for game in X]))
     for window_size_div in [1,2,4]:
         # Don't graph if player has very few of this type, or user filtered
-        count = len([element for element in gradingScoresNorm[roomType] if element is not None])
-        if count/len(gradingScoresNorm[roomType]) < args.min_percent_game_type/100.0: continue
-        if modeId2RoomTypeFull[roomType] == 'Jade S' and args.no_js: continue
-        if modeId2RoomTypeFull[roomType] == 'Jade E' and args.no_je: continue
-        if modeId2RoomTypeFull[roomType] == 'Gold S' and args.no_gs: continue
-        if modeId2RoomTypeFull[roomType] == 'Gold E' and args.no_ge: continue
+        count = len([element for element in attr if element is not None])
+        if count/len(attr) < args.min_percent_game_type/100.0: continue
+        if roomTypeStr == 'Jade S' and args.no_js: continue
+        if roomTypeStr == 'Jade E' and args.no_je: continue
+        if roomTypeStr == 'Gold S' and args.no_gs: continue
+        if roomTypeStr == 'Gold E' and args.no_ge: continue
         if count > mostCommonRoomType['count']:
-            mostCommonRoomType = {'t':roomType, 'count':count}
-        tmp = calcMovingAvg(gradingScoresNorm[roomType], window_size//window_size_div)
-        plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'{modeId2RoomTypeFull[roomType]} ({window_size//window_size_div} games)')
+            mostCommonRoomType = {'t':roomTypeInt, 'count':count}
+        tmp = calcMovingAvg(attr, window_size//window_size_div)
+        plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'{roomTypeStr} ({window_size//window_size_div} games)')
 plt.legend()
-plt.title(f'Expected Score assuming {normalize_to_rank} ({pname})')
+plt.title(f'Expected Score per round assuming {normalize_to_rank} ({pname})')
 plt.xlabel('Game Number')
 plt.xlim(x_start, len(X))
 plt.ylabel('Expected Score')
@@ -264,7 +330,7 @@ f.set_figwidth(0.01)
 plt.figure(facecolor='w', figsize=(15, 5))
 左端 = x_start
 if 左端 == 0:
-  plt.text(3, 100, f'傑\n1', fontsize=12)
+  plt.text(3, 100, f'E\n1', fontsize=12)
 pre_pt, pt, base = 600, 600, 600
 for i, game in enumerate(tqdm(X[::-1])):
   for data in game['players']:
