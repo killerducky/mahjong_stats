@@ -309,7 +309,7 @@ plt.xlabel('Game Number')
 plt.xlim(x_start, len(X))
 plt.ylabel('Expected Score')
 plt.tick_params(labelright=True)
-if attrstr == 'grandingScoresNorm':
+if attrstr == 'gradingScoresNorm':
     for k,v in last_place_normalize[modeId2RoomLength[mostCommonRoomType['t']]].items():
         # Experts cannot play in both Jade and Gold, making it hard to draw a line for this
         if k[0] == 'E': continue
