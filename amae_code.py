@@ -126,7 +126,7 @@ if os.path.exists(save_filename):
 
 def exponential_moving_average(data, half_life):
     alpha = 1 - 0.5 ** (1 / half_life)
-    ema = [sum(data[:half_life]) / half_life]  # Initial SMA for the first half_life values
+    ema = [sum(data[:half_life]) / max(half_life, len(data))]  # Initial SMA for the first half_life values
     for i in range(1, len(data)):
         ema.append(alpha * data[i] + (1 - alpha) * ema[i - 1])
     return ema
@@ -287,7 +287,6 @@ for k,v in sorted(tableDifficultyBins.items()):
 x_start = max(0, len(X) - args.max_games)
 plt.figure(figsize=(15, 4.5))
 mostCommonRoomType = {'t':None, 'count':0}
-
 for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
     attr = list(reversed([None if game['modeId']!=roomTypeInt else game['gradingScoresNorm'] for game in X]))
     #attr = list(reversed([None if game['modeId']!=roomTypeInt else game['copper'] for game in X]))
