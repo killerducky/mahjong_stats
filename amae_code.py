@@ -229,7 +229,6 @@ def p_skill_score(level_int):
     score += level_int % 100 - 1
     return score
 
-placements = []
 modeId2RoomTypeFull = {12:'Jade S', 11:'Jade E', 9:'Gold S', 8:'Gold E'} 
 modeId2RoomColor = {12:'J', 11:'J', 9:'G', 8:'G'} # Gold or Jade
 modeId2RoomLength = {12:'S', 11:'E', 9:'S', 8:'E'} # Hanchan (South) or Tonpuusen (East)
@@ -248,31 +247,30 @@ def addCopper(game):
     game['copper'] = game['gradingScoresNorm']
     game['copper'] = p['gradingScore'] - rank_bonus[modeId2RoomTypeFull[game['modeId']]][game['placement']-1]
     if game['placement'] == 4:
-        game['copper'] -= last_place_penalty[modeId2RoomLength[game['modeId']]][level]
+        game['copper'] -= last_place_penalty[modeId2RoomLength[game['modeId']]][level_dan(p['level'])]
     game['copper'] *= copper_rate[modeId2RoomTypeFull[game['modeId']]]
 
-for game in reversed(X):
-    game['orig_idx'] = game['players'].index(next(player for player in game['players'] if player['accountId'] == pid))
-    players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
-    idx = players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
-    place = 4 - idx
-    game['placement'] = place
+def addTableDifficulty(game):
+    p = game['players'][game['orig_idx']]
     game['tableDifficulty'] = 0
     if game['modeId'] in modeId2RoomColor and modeId2RoomColor[game['modeId']] == 'J':
-        for player in players_sorted:
+        for player in game['players']:
             if player['accountId'] == pid: continue
             game['tableDifficulty'] += p_skill_score(player['level'])
         # Compress to fewer bins
         game['tableDifficulty'] = min(game['tableDifficulty']//2, 4)
-        #game['tableDifficulty'] = 0 if game['tableDifficulty'] < 15 else 1
         if game['tableDifficulty'] not in tableDifficultyBins:
             tableDifficultyBins[game['tableDifficulty']] = {'sum':0, 'count':0}
-        tableDifficultyBins[game['tableDifficulty']]['sum'] += players_sorted[idx]['gradingScore']
+        tableDifficultyBins[game['tableDifficulty']]['sum'] += p['gradingScore']
         tableDifficultyBins[game['tableDifficulty']]['count'] += 1
-    placements.append(game['placement'])
-    level = level_dan(players_sorted[idx]['level'])
+
+for game in reversed(X):
+    game['orig_idx'] = game['players'].index(next(player for player in game['players'] if player['accountId'] == pid))
+    players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
+    game['placement'] = 4 - players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
     addGradingScoresNorm(game)
     addCopper(game)
+    addTableDifficulty(game)
 
 for k,v in sorted(tableDifficultyBins.items()):
     v['avg'] = v['sum']/v['count']
