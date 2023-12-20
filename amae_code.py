@@ -126,7 +126,7 @@ if os.path.exists(save_filename):
 
 def exponential_moving_average(data, half_life):
     alpha = 1 - 0.5 ** (1 / half_life)
-    ema = [sum(data[:half_life]) / max(half_life, len(data))]  # Initial SMA for the first half_life values
+    ema = [sum(data[:half_life]) / min(half_life, len(data))]  # Initial SMA for the first half_life values
     for i in range(1, len(data)):
         ema.append(alpha * data[i] + (1 - alpha) * ema[i - 1])
     return ema
@@ -135,13 +135,12 @@ def calcMovingAvg(data, window_size):
     filtered = [v for v in data if v is not None]
     averaged = exponential_moving_average(filtered, window_size)
     final_result = []
-    non_null_count = 0
-    for i,v in enumerate(data):
-        if v == None:
+    averaged_iter = iter(averaged)
+    for value in data:
+        if value is None:
             final_result.append(None)
         else:
-            final_result.append(averaged[non_null_count])
-            non_null_count += 1
+            final_result.append(next(averaged_iter))
     return(final_result)
 
 if モード選択 == '四麻':
@@ -287,9 +286,11 @@ for k,v in sorted(tableDifficultyBins.items()):
 x_start = max(0, len(X) - args.max_games)
 plt.figure(figsize=(15, 4.5))
 mostCommonRoomType = {'t':None, 'count':0}
+attrstr = 'gradingScoresNorm'
+#attrstr = 'copper'
+#attrstr = 'placement'
 for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
-    attr = list(reversed([None if game['modeId']!=roomTypeInt else game['gradingScoresNorm'] for game in X]))
-    #attr = list(reversed([None if game['modeId']!=roomTypeInt else game['copper'] for game in X]))
+    attr = list(reversed([None if game['modeId']!=roomTypeInt else game[attrstr] for game in X]))
     for window_size_div in [1,2,4]:
         # Don't graph if player has very few of this type, or user filtered
         count = len([element for element in attr if element is not None])
@@ -308,11 +309,12 @@ plt.xlabel('Game Number')
 plt.xlim(x_start, len(X))
 plt.ylabel('Expected Score')
 plt.tick_params(labelright=True)
-for k,v in last_place_normalize[modeId2RoomLength[mostCommonRoomType['t']]].items():
-   # Experts cannot play in both Jade and Gold, making it hard to draw a line for this
-   if k[0] == 'E': continue
-   plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
-   plt.text(x_start, v/4.0, f'{k} {modeId2RoomLength[mostCommonRoomType["t"]]}', color='blue', verticalalignment='bottom')
+if attrstr == 'grandingScoresNorm':
+    for k,v in last_place_normalize[modeId2RoomLength[mostCommonRoomType['t']]].items():
+        # Experts cannot play in both Jade and Gold, making it hard to draw a line for this
+        if k[0] == 'E': continue
+        plt.axhline(y=v/4.0, alpha=1, linewidth=0.5)
+        plt.text(x_start, v/4.0, f'{k} {modeId2RoomLength[mostCommonRoomType["t"]]}', color='blue', verticalalignment='bottom')
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
