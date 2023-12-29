@@ -133,6 +133,8 @@ def exponential_moving_average(data, half_life):
 
 def calcMovingAvg(data, window_size):
     filtered = [v for v in data if v is not None]
+    if len(filtered) == 0:
+        return [None] * len(data)
     averaged = exponential_moving_average(filtered, window_size)
     final_result = []
     averaged_iter = iter(averaged)
@@ -257,7 +259,7 @@ def addTableDifficulty(game):
             if player['accountId'] == pid: continue
             game['tableDifficulty'] += p_skill_score(player['level'])
         # Compress to fewer bins
-        game['tableDifficulty'] = min(game['tableDifficulty']//2, 4)
+        game['tableDifficulty'] = min(game['tableDifficulty']//5, 1)
         if game['tableDifficulty'] not in tableDifficultyBins:
             tableDifficultyBins[game['tableDifficulty']] = {'sum':0, 'count':0}
         tableDifficultyBins[game['tableDifficulty']]['sum'] += p['gradingScore']
@@ -271,10 +273,8 @@ for game in reversed(X):
     addCopper(game)
     addTableDifficulty(game)
 
-for k,v in sorted(tableDifficultyBins.items()):
-    v['avg'] = v['sum']/v['count']
-    #print(k, v['count'], v['avg'], 2*math.sqrt(13000/v['count']))
-
+#for k,v in sorted(tableDifficultyBins.items()):
+#    v['avg'] = v['sum']/v['count']
 #plt.figure()
 #plt.scatter(sorted(tableDifficultyBins.keys()), [v['avg'] for k,v in sorted(tableDifficultyBins.items())])
 #plt.errorbar(sorted(tableDifficultyBins.keys()), [v['avg'] for k,v in sorted(tableDifficultyBins.items())], 
