@@ -15,8 +15,7 @@ import traceback
 # @markdown # Mahjong Soul Expected Score per round
 # @markdown Based on [Original collab script](https://colab.research.google.com/drive/1puwnp-_k3aHV8trHYInX9HGsBgnJ-hYY#scrollTo=Uoyjy8mCJ21c)
 # @markdown
-# @markdown This script adds a graph that shows a moving average of your expected score
-# @markdown per round played.
+# @markdown Graphs a moving average of your expected score per round played.
 # @markdown There are several averages that respond more or less quickly.
 # @markdown
 # @markdown Averages for Gold room and Jade room are kept separately because
@@ -64,12 +63,12 @@ window_size = 400
 # @markdown ---
 # @markdown ## The Blue lines and Normalization
 # @markdown The horizontal blue lines represent approximately what level you must
-# @markdown play to be a breakeven player of a certain rank.
+# @markdown play to be a breakeven player of a given rank.
 # @markdown It takes all 4th place results and recalculates the penalty as if you were (by default) M1.
 # @markdown So if your expected score is near 0, you are near a breakeven M1.
 # @markdown
 # @markdown The blue lines take the difference in 4th place penalty between M1
-# @markdown and the higher ranks and divide by 4.
+# @markdown and the other ranks and divide by 4.
 # @markdown
 # @markdown * M1 4th = -165, S3 4th = -240
 # @markdown * (240-165)/4 = 18.75
@@ -196,12 +195,16 @@ last_place_penalty = {
     'E':  {'E1':-40, 'E2':-50, 'E3':-60, 'M1':-80, 'M2':-90, 'M3':-100, 'S1':-110, 'S2':-120, 'S3':-130}
 }
 rank_bonus = {
+    'Throne S': [120, 60, 0, 0],
+    'Throne E': [60, 30, 0, 0],
     'Jade S': [110, 55, 0, 0],
     'Jade E': [55, 30, 0, 0],
     'Gold S': [80, 40, 0, 0],
     'Gold E': [40, 20, 0, 0],
 }
 copper_rate = {
+    'Throne S' : 280,
+    'Throne E' : 200,
     'Jade S' : 280,
     'Jade E' : 200,
     'Gold S' : 140,
@@ -230,9 +233,9 @@ def p_skill_score(level_int):
     score += level_int % 100 - 1
     return score
 
-modeId2RoomTypeFull = {12:'Jade S', 11:'Jade E', 9:'Gold S', 8:'Gold E'} 
-modeId2RoomColor = {12:'J', 11:'J', 9:'G', 8:'G'} # Gold or Jade
-modeId2RoomLength = {12:'S', 11:'E', 9:'S', 8:'E'} # Hanchan (South) or Tonpuusen (East)
+modeId2RoomTypeFull = {16: 'Throne S', 15: 'Throne E', 12:'Jade S', 11:'Jade E', 9:'Gold S', 8:'Gold E'} 
+modeId2RoomColor = {16: 'T', 15: 'T', 12:'J', 11:'J', 9:'G', 8:'G'} # Gold or Jade
+modeId2RoomLength = {16: 'S', 15: 'E', 12:'S', 11:'E', 9:'S', 8:'E'} # Hanchan (South) or Tonpuusen (East)
 tableDifficultyBins = {}
 
 def addGradingScoresNorm(game):
@@ -294,7 +297,7 @@ for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
     for window_size_div in [1,2,4]:
         # Don't graph if player has very few of this type, or user filtered
         count = len([element for element in attr if element is not None])
-        if count/len(attr) < args.min_percent_game_type/100.0: continue
+        if count/len(attr) <= args.min_percent_game_type/100.0: continue
         if roomTypeStr == 'Jade S' and args.no_js: continue
         if roomTypeStr == 'Jade E' and args.no_je: continue
         if roomTypeStr == 'Gold S' and args.no_gs: continue
