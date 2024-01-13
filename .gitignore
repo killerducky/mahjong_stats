@@ -1,6 +1,7 @@
-amae_pickle
+*.pickle
 *.png
 *.html
 output.txt
 naga.txt
 hi
+media

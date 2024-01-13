@@ -3557,6 +3557,7 @@
                         }
                         )))
                     }
+                    // aolsen badMoveRate etc calculated here
                     for (var y = 0; y < 4; y++) {
                         for (var b = this.result.dahaiDecisionCount[y], k = [], v = [], w = [], _ = 0; _ < this.nagaTypes.length; _++)
                             k.push((b - this.result.notMatchMoveCount[y][_]) / b * 100),
@@ -3609,6 +3610,7 @@
                     console.log("対局レポート(コピペ用)"),
                     console.log("総局数：".concat(this.kyokuCount)),
                     console.log(a),
+                    // aolsen this was added to get the a object
                     console.log(JSON.stringify(a))
                 }
             }]),
