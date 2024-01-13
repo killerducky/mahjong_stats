@@ -12,8 +12,79 @@ from selenium.webdriver import Chrome
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
 
 def get_pred(driver, url):
+    response = requests.get(url)
+    #print(test.text)
+    if False:
+        soup = BeautifulSoup(response.content, 'html.parser') #, encoding='UTF-8')
+        script_tag = soup.find('script')
+        print(str(script_tag.contents)[:100])
+        with open("script.pickle", "wb") as fp: pickle.dump(script_tag.contents, fp)
+    else:
+        with open("script.pickle", "rb") as fp: contents = pickle.load(fp)
+        contents = str(contents)
+        #contents = re.sub(r'^.*?const pred = ', '', contents)
+        contents = re.findall(r'const pred = ([\s\S]*}]])', contents)[0]
+        #cnt = 0
+        #for i,c in enumerate(contents):
+        #for c in contents:
+        #    if c == '[': cnt += 1
+        #    if c == ']': 
+        #        cnt -= 1
+        #        if cnt == 0: print("zero")
+        #        break
+        #print(cnt)    
+        #print(str(contents)[:100])
+        #print(str(contents)[-100:])
+        pred = json.loads(contents)
+        #print(pred)
+        data = {}
+        data['pred'] = pred
+        data['W_tilemap'] = {
+                "1m": 0,
+                "2m": 1,
+                "3m": 2,
+                "4m": 3,
+                "5m": 4,
+                "5mr": 4.1,
+                "6m": 5,
+                "7m": 6,
+                "8m": 7,
+                "9m": 8,
+                "1p": 9,
+                "2p": 10,
+                "3p": 11,
+                "4p": 12,
+                "5p": 13,
+                "5pr": 13.1,
+                "6p": 14,
+                "7p": 15,
+                "8p": 16,
+                "9p": 17,
+                "1s": 18,
+                "2s": 19,
+                "3s": 20,
+                "4s": 21,
+                "5s": 22,
+                "5sr": 22.1,
+                "6s": 23,
+                "7s": 24,
+                "8s": 25,
+                "9s": 26,
+                "E": 27,
+                "S": 28,
+                "W": 29,
+                "N": 30,
+                "P": 31,
+                "F": 32,
+                "C": 33,
+                "?": 34
+            }
+    return data
+    
+def get_pred_using_index_js(driver, url):
     pickle_filename = 'naga_data.pickle'
     if os.path.exists(pickle_filename):
         with open(pickle_filename, "rb") as fp: data = pickle.load(fp)
@@ -35,6 +106,8 @@ def get_pred(driver, url):
     browser_log = driver.get_log('browser')
     data = {}
     data['pred'] = driver.execute_script("return pred;")
+    # W is a local variable, is there a way to get it?
+    # Instead I just copied it here.
     #data['W_tilemap'] = driver.execute_script("return W;")
     # This is a local var in index.js. How to get it out?
     data['W_tilemap'] = {
@@ -163,16 +236,30 @@ def parse_pred(data):
     nagaRate = [0]*4
     notMatchMoveCount = [0]*4
     for kyoku in data['pred']:   # kyoku = hand number e.g. East 2 Bonus 1 (but here just an array)
-        for turn in kyoku:
+        for i, turn in enumerate(kyoku):
             msg = turn['info']['msg']
             # types: {'tsumo', 'dahai', 'pon', 'dora', 'ankan', 'reach', 'chi', 'reach_accepted', 'start_kyoku'}
             # p_msg types: {'reach', 'dahai', 'tsumo', 'reach_accepted', 'ankan', 'dora', 'none', 'chi', 'pon', 'start_kyoku'}
             # Stats don't include huro (calls) -- investigating how these are shown in the code
-            #if msg['type'] in ('chi', 'pon'): 
-            #    print("huro", prev_huro)
-            #    print(msg)
-            #    sys.exit()
-            if msg['type'] in ('tsumo', 'chi', 'pon') and not msg['reached'] and not msg['p_msg']['type'] in ('start_kyoku'):
+            # huro: dict of actors -> array of 2 bots -> dict of actions
+            # 0 = no call 
+            # 1,2,3, = chi left,mid,right (check order?)
+            # 4 = pon
+            # 5 = kan? maybe?
+            if msg['type'] in ('chi', 'pon'): 
+                for actor, v in kyoku[i-1]['huro'].items():
+                    probs = list(v[0].values())
+                    total = sum(probs)
+                    probs = [p/total for p in probs]
+                    #if probs[0] < 0.99:
+                        #print('huro', turn['huro'])
+                        #print('ratio', actor, probs)
+                print(msg['type'], 1-probs[0], kyoku[i-1]['huro'])
+                #sys.exit()
+            #if msg['type'] in ('tsumo', 'chi', 'pon') and not msg['reached'] and not msg['p_msg']['type'] in ('start_kyoku'):
+            if 'dahai_pred' in turn and not msg['reached']:
+                real_dahai = turn['info']['msg']['real_dahai']
+                if not real_dahai or real_dahai == "?": continue
                 if msg['type'] == "?": raise Exception("is this possible?")
                 # dahai = discard
                 # pred = predictect by Naga
@@ -185,10 +272,11 @@ def parse_pred(data):
                 dahaiDecisionCount[actor] += 1
                 best_dahai = turn['info']['msg']['pred_dahai'][0]
                 best_index = math.floor(data['W_tilemap'][best_dahai]) # Red 5s are encoded as e.g. "5mr": 4.1. Use floor to make it just plain 4
-                best_prob = turn['dahaiPred'][0][best_index]
+                best_prob = turn['dahai_pred'][0][best_index]/10000.0
 
                 real_index = math.floor(data['W_tilemap'][real_dahai])
-                real_prob = turn['dahaiPred'][0][real_index]
+                print(best_index, real_index)
+                real_prob = turn['dahai_pred'][0][real_index]/10000.0
                 diff = abs(best_prob - real_prob) # They use abs, but best should always be highest so not actually needed?
                 nagaRate[actor] += diff
                 if real_prob < 0.05: badMoveCount[actor] += 1
@@ -237,6 +325,7 @@ options.add_argument("--headless")
 options.page_load_strategy = "none"
 options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
 driver = Chrome(options=options)
+#driver = None
 with open("naga.txt", "r", encoding="utf-8-sig") as f:
     url_list = f.read().splitlines()
 file = open("output.txt", "w", encoding="utf-8-sig")
@@ -247,7 +336,8 @@ for url in url_list:
     #player_stat = get_player_stat(log, page)
     #game_info = get_game_info(log, page)
     #print_data_for_spreadsheet(game_info, player_stat, file, "Razout")
-    pred = get_pred(driver, url)
+    #pred = get_pred(driver, url)
+    pred = get_pred_using_index_js(driver, url)
     parse_pred(pred)
 file.close()
 driver.quit()
