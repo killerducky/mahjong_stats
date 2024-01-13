@@ -172,7 +172,7 @@ if update_cached_data:
     X = []
     start = pdata['latest_timestamp']
     for i in range(20):
-        s1 = f'{s0}player_records/{pid}/{start}/1262304000000?limit=500&mode={mode}&descending=true&tag='
+        s1 = f'{s0}player_records/{pid}/{start}999/1262304000000?limit=500&mode={mode}&descending=true&tag='
         games = requests.get(s1).json()
         time.sleep(0.01)
         length = len(games)
@@ -252,6 +252,7 @@ def addCopper(game):
     game['copper'] = p['gradingScore'] - rank_bonus[modeId2RoomTypeFull[game['modeId']]][game['placement']-1]
     if game['placement'] == 4:
         game['copper'] -= last_place_penalty[modeId2RoomLength[game['modeId']]][level_dan(p['level'])]
+    game['copper'] -= 10 # Entry Fee is 10X the copper rate
     game['copper'] *= copper_rate[modeId2RoomTypeFull[game['modeId']]]
 
 def addTableDifficulty(game):
@@ -304,8 +305,8 @@ for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
         if roomTypeStr == 'Gold E' and args.no_ge: continue
         if count > mostCommonRoomType['count']:
             mostCommonRoomType = {'t':roomTypeInt, 'count':count}
-        tmp = calcMovingAvg(attr, window_size//window_size_div)
-        plt.plot(range(x_start, len(tmp)), tmp[x_start:], label=f'{roomTypeStr} ({window_size//window_size_div} games)')
+        ema = calcMovingAvg(attr, window_size//window_size_div)
+        plt.plot(range(x_start, len(ema)), ema[x_start:], label=f'{roomTypeStr} ({window_size//window_size_div} game half life)')
 plt.legend()
 plt.title(f'Expected Score per round assuming {normalize_to_rank} ({pname})')
 plt.xlabel('Game Number')
@@ -334,13 +335,14 @@ plt.figure(facecolor='w', figsize=(15, 5))
 if 左端 == 0:
   plt.text(3, 100, f'E\n1', fontsize=12)
 pre_pt, pt, base = 600, 600, 600
-for i, game in enumerate(tqdm(X[::-1])):
+for i, game in enumerate(X[::-1]):
   for data in game['players']:
     if data['accountId'] == pid:
       level = data['level']
+      s = level_dan(level)
       if pre_level != level:
+        print(f'Game #{i}', datetime.fromtimestamp(game['startTime']).strftime("%Y-%m-%d"), s)
         if 左端 <= i <= 右端:
-          s = level_dan(level)
           plt.text(i+3, 100, f'{s[0]}\n{s[1:]}', fontsize=12)
           plt.vlines(i, 0, max(level_pt_base(level), level_pt_base(pre_level))*2, color='k')
         base = level_pt_base(level)
@@ -352,6 +354,7 @@ for i, game in enumerate(tqdm(X[::-1])):
         plt.plot([i, i+1], [base, base], color='k', lw=1.5)
         plt.plot([i, i+1], [base*2, base*2], color='k', lw=1.5)
       pre_level, pre_pt = level, pt
+print(X[0])
 plt.title(f'Rank Points Trend[{jp2en[モード選択]}]({pname})', fontsize=20)
 plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
 plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
