@@ -256,6 +256,7 @@ def parse_pred(data):
                         #print('ratio', actor, probs)
                 print(msg['type'], 1-probs[0], kyoku[i-1]['huro'])
                 #sys.exit()
+            # TODO: clean up these conditions, it's sorta a mess right now
             #if msg['type'] in ('tsumo', 'chi', 'pon') and not msg['reached'] and not msg['p_msg']['type'] in ('start_kyoku'):
             if 'dahai_pred' in turn and not msg['reached']:
                 real_dahai = turn['info']['msg']['real_dahai']
@@ -324,8 +325,8 @@ options = webdriver.ChromeOptions()
 options.add_argument("--headless")
 options.page_load_strategy = "none"
 options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
-driver = Chrome(options=options)
-#driver = None
+#driver = Chrome(options=options)
+driver = None
 with open("naga.txt", "r", encoding="utf-8-sig") as f:
     url_list = f.read().splitlines()
 file = open("output.txt", "w", encoding="utf-8-sig")
@@ -336,8 +337,8 @@ for url in url_list:
     #player_stat = get_player_stat(log, page)
     #game_info = get_game_info(log, page)
     #print_data_for_spreadsheet(game_info, player_stat, file, "Razout")
-    #pred = get_pred(driver, url)
-    pred = get_pred_using_index_js(driver, url)
+    pred = get_pred(driver, url)
+    #pred = get_pred_using_index_js(driver, url)
     parse_pred(pred)
 file.close()
-driver.quit()
+#driver.quit()
