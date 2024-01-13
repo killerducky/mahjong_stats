@@ -247,10 +247,9 @@ def parse_pred(data):
                 print(msg['type'], 1-probs[0], kyoku[i-1]['huro'])
                 #sys.exit()
             # TODO: clean up these conditions, it's sorta a mess right now
-            #if msg['type'] in ('tsumo', 'chi', 'pon') and not msg['reached'] and not msg['p_msg']['type'] in ('start_kyoku'):
-            if 'dahai_pred' in turn and not msg['reached']:
-                real_dahai = turn['info']['msg']['real_dahai']
-                if not real_dahai or real_dahai == "?": continue
+            if msg['type'] in ('tsumo', 'chi', 'pon') and not msg['reached']:
+                real_dahai = msg['real_dahai']
+                if not real_dahai or real_dahai == "?": continue # Not sure why this happens
                 if msg['type'] == "?": raise Exception("is this possible?")
                 # dahai = discard
                 # pred = predictect by Naga
@@ -258,7 +257,6 @@ def parse_pred(data):
                 # dahaiPred is a probability
                 # dahai_pred is multiplied by 1000 to get integers
                 # info->msg->pred_dahai gives the actual tile with highest probability for each bot
-                real_dahai = msg['real_dahai']
                 actor = turn['info']['msg']['actor']
                 dahaiDecisionCount[actor] += 1
                 best_dahai = turn['info']['msg']['pred_dahai'][0]
@@ -266,13 +264,12 @@ def parse_pred(data):
                 best_prob = turn['dahai_pred'][0][best_index]/10000.0
 
                 real_index = math.floor(data['W_tilemap'][real_dahai])
-                print(best_index, real_index)
                 real_prob = turn['dahai_pred'][0][real_index]/10000.0
                 diff = abs(best_prob - real_prob) # They use abs, but best should always be highest so not actually needed?
                 nagaRate[actor] += diff
                 if real_prob < 0.05: badMoveCount[actor] += 1
                 if best_index != real_index: notMatchMoveCount[actor] += 1
-                print(actor, real_dahai, real_prob, best_dahai, best_prob, diff, dahaiDecisionCount[actor], badMoveCount[actor], nagaRate[actor], turn['info']['msg']['reached'])
+                #print(actor, real_dahai, real_prob, best_dahai, best_prob, diff, dahaiDecisionCount[actor], badMoveCount[actor], nagaRate[actor], turn['info']['msg']['reached'])
             else:
                 pass
     print("stats")
