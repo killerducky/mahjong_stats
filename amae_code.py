@@ -117,7 +117,7 @@ normalize_to_rank = jp2en[normalize_to_rank[0]] + normalize_to_rank[1:]
 
 # Only 四麻 supported
 モード選択 = '\u56DB\u9EBB' # ['四麻', '三麻']
-save_filename = "amae_pickle"
+save_filename = "amae.pickle"
 cached_data_dirty = False
 cached_data = {}
 if os.path.exists(save_filename):

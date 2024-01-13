@@ -14,74 +14,64 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 
+def file_cached_func(filename, func):
+    if os.path.exists(filename):
+        with open(filename, "rb") as fp: data = pickle.load(fp)
+        return data
+    else:
+        data = func()
+        with open(filename, "wb") as fp: pickle.dump(data, fp)
+        return func
+
 def get_pred(driver, url):
     response = requests.get(url)
-    #print(test.text)
-    if False:
-        soup = BeautifulSoup(response.content, 'html.parser') #, encoding='UTF-8')
-        script_tag = soup.find('script')
-        print(str(script_tag.contents)[:100])
-        with open("script.pickle", "wb") as fp: pickle.dump(script_tag.contents, fp)
-    else:
-        with open("script.pickle", "rb") as fp: contents = pickle.load(fp)
-        contents = str(contents)
-        #contents = re.sub(r'^.*?const pred = ', '', contents)
-        contents = re.findall(r'const pred = ([\s\S]*}]])', contents)[0]
-        #cnt = 0
-        #for i,c in enumerate(contents):
-        #for c in contents:
-        #    if c == '[': cnt += 1
-        #    if c == ']': 
-        #        cnt -= 1
-        #        if cnt == 0: print("zero")
-        #        break
-        #print(cnt)    
-        #print(str(contents)[:100])
-        #print(str(contents)[-100:])
-        pred = json.loads(contents)
-        #print(pred)
-        data = {}
-        data['pred'] = pred
-        data['W_tilemap'] = {
-                "1m": 0,
-                "2m": 1,
-                "3m": 2,
-                "4m": 3,
-                "5m": 4,
-                "5mr": 4.1,
-                "6m": 5,
-                "7m": 6,
-                "8m": 7,
-                "9m": 8,
-                "1p": 9,
-                "2p": 10,
-                "3p": 11,
-                "4p": 12,
-                "5p": 13,
-                "5pr": 13.1,
-                "6p": 14,
-                "7p": 15,
-                "8p": 16,
-                "9p": 17,
-                "1s": 18,
-                "2s": 19,
-                "3s": 20,
-                "4s": 21,
-                "5s": 22,
-                "5sr": 22.1,
-                "6s": 23,
-                "7s": 24,
-                "8s": 25,
-                "9s": 26,
-                "E": 27,
-                "S": 28,
-                "W": 29,
-                "N": 30,
-                "P": 31,
-                "F": 32,
-                "C": 33,
-                "?": 34
-            }
+    soup = BeautifulSoup(response.content, 'html.parser') #, encoding='UTF-8')
+    script_tag = soup.find('script')
+    contents = str(script_tag.contents)
+    contents = re.findall(r'const pred = ([\s\S]*}]])', contents)[0]
+    pred = json.loads(str(contents))
+    data = {}
+    data['pred'] = pred
+    data['W_tilemap'] = {
+            "1m": 0,
+            "2m": 1,
+            "3m": 2,
+            "4m": 3,
+            "5m": 4,
+            "5mr": 4.1,
+            "6m": 5,
+            "7m": 6,
+            "8m": 7,
+            "9m": 8,
+            "1p": 9,
+            "2p": 10,
+            "3p": 11,
+            "4p": 12,
+            "5p": 13,
+            "5pr": 13.1,
+            "6p": 14,
+            "7p": 15,
+            "8p": 16,
+            "9p": 17,
+            "1s": 18,
+            "2s": 19,
+            "3s": 20,
+            "4s": 21,
+            "5s": 22,
+            "5sr": 22.1,
+            "6s": 23,
+            "7s": 24,
+            "8s": 25,
+            "9s": 26,
+            "E": 27,
+            "S": 28,
+            "W": 29,
+            "N": 30,
+            "P": 31,
+            "F": 32,
+            "C": 33,
+            "?": 34
+        }
     return data
     
 def get_pred_using_index_js(driver, url):
@@ -337,7 +327,7 @@ for url in url_list:
     #player_stat = get_player_stat(log, page)
     #game_info = get_game_info(log, page)
     #print_data_for_spreadsheet(game_info, player_stat, file, "Razout")
-    pred = get_pred(driver, url)
+    pred = file_cached_func("naga_data.pickle", lambda: get_pred(driver, url))
     #pred = get_pred_using_index_js(driver, url)
     parse_pred(pred)
 file.close()
