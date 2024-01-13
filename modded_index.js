@@ -3415,6 +3415,8 @@
             }
             return Object(F["a"])(t, [{
                 key: "dahai",
+                // aolsen badMoveCount and other stats calculated here
+                // somewhere else already filtered out reached=true turns
                 value: function(e, a, i) {
                     var n = this
                       , r = a.info.msg
@@ -3519,6 +3521,8 @@
                         this.reachAt[1].push(-1),
                         this.reachAt[2].push(-1),
                         this.reachAt[3].push(-1);
+                        // aolsen here is where dahai (discards) are filtered
+                        // Dt.my_turn_action = ["tsumo", "chi", "pon"],
                         for (var d = Array(4).fill(!1), p = 0; p < e[o].length; p++) {
                             if (i = e[o][p],
                             r = i.info.msg,

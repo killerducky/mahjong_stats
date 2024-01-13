@@ -158,53 +158,46 @@ def print_player(p, file):
           sep='\t', end='\t', file=file)
 
 def parse_pred(data):
-    pred = data['pred']
-    #print(data['W_tilemap'])
-    #print(type(pred), len(pred))
-    
     badMoveCount = [0]*4
     dahaiDecisionCount = [0]*4
     nagaRate = [0]*4
     notMatchMoveCount = [0]*4
-    for i in pred:
-        for j in i:
-            if 'dahai_pred' in j:
-                # Two arrays of predicted values, one for each bot
+    for kyoku in data['pred']:   # kyoku = hand number e.g. East 2 Bonus 1 (but here just an array)
+        for turn in kyoku:
+            msg = turn['info']['msg']
+            # types: {'tsumo', 'dahai', 'pon', 'dora', 'ankan', 'reach', 'chi', 'reach_accepted', 'start_kyoku'}
+            # p_msg types: {'reach', 'dahai', 'tsumo', 'reach_accepted', 'ankan', 'dora', 'none', 'chi', 'pon', 'start_kyoku'}
+            # Stats don't include huro (calls) -- investigating how these are shown in the code
+            #if msg['type'] in ('chi', 'pon'): 
+            #    print("huro", prev_huro)
+            #    print(msg)
+            #    sys.exit()
+            if msg['type'] in ('tsumo', 'chi', 'pon') and not msg['reached'] and not msg['p_msg']['type'] in ('start_kyoku'):
+                if msg['type'] == "?": raise Exception("is this possible?")
+                # dahai = discard
+                # pred = predictect by Naga
+                # There are two arrays of predicted values, one for each bot, and two versions of that array
                 # dahaiPred is a probability
-                # dahai_pred is just multiplied by 1000 to get integers
+                # dahai_pred is multiplied by 1000 to get integers
                 # info->msg->pred_dahai gives the actual tile with highest probability for each bot
-                #print(j['dahai_pred'])
-                real_dahai = j['info']['msg']['real_dahai']
-                if real_dahai and real_dahai != "?":
-                    if j['info']['msg']['reached']:
-                        print('NA: reached = True')
-                        continue
-                    actor = j['info']['msg']['actor']
-                    dahaiDecisionCount[actor] += 1
-                    best_dahai = j['info']['msg']['pred_dahai'][0]
-                    # Red 5s are encoded as e.g. "5mr": 4.1. Use floor to make it just plain 4
-                    best_index = math.floor(data['W_tilemap'][best_dahai])
-                    #print(best_index, j['info']['msg'])
-                    best_prob = j['dahaiPred'][0][best_index]
+                real_dahai = msg['real_dahai']
+                actor = turn['info']['msg']['actor']
+                dahaiDecisionCount[actor] += 1
+                best_dahai = turn['info']['msg']['pred_dahai'][0]
+                best_index = math.floor(data['W_tilemap'][best_dahai]) # Red 5s are encoded as e.g. "5mr": 4.1. Use floor to make it just plain 4
+                best_prob = turn['dahaiPred'][0][best_index]
 
-                    real_index = math.floor(data['W_tilemap'][real_dahai])
-                    real_prob = j['dahaiPred'][0][real_index]
-                    # They use abs, but best should always be highest so not actually needed?
-                    diff = abs(best_prob - real_prob)
-                    nagaRate[actor] += diff
-                    if real_prob < 0.05: badMoveCount[actor] += 1
-                    if best_index != real_index: notMatchMoveCount[actor] += 1
-                    print(actor, real_dahai, real_prob, best_dahai, best_prob, diff, dahaiDecisionCount[actor], badMoveCount[actor], nagaRate[actor], j['info']['msg']['reached'])
-                else:
-                    #print("NA?", j['info']['msg'])
-                    #print("NA?", real_dahai, j['info']['msg']['type'])
-                    # Why is there both None and ?
-                    #if real_dahai == "?": sys.exit()
-                    pass
+                real_index = math.floor(data['W_tilemap'][real_dahai])
+                real_prob = turn['dahaiPred'][0][real_index]
+                diff = abs(best_prob - real_prob) # They use abs, but best should always be highest so not actually needed?
+                nagaRate[actor] += diff
+                if real_prob < 0.05: badMoveCount[actor] += 1
+                if best_index != real_index: notMatchMoveCount[actor] += 1
+                print(actor, real_dahai, real_prob, best_dahai, best_prob, diff, dahaiDecisionCount[actor], badMoveCount[actor], nagaRate[actor], turn['info']['msg']['reached'])
             else:
-                #print('na', j['info'])
                 pass
-            #print(j['info']['msg'])
+    print("stats")
+    print("count, match, score, bad")
     for actor in range(4):
         print('{:d} {:.1f} {:.1f} {:.1f}'.format(
             dahaiDecisionCount[actor],
