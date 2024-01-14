@@ -120,6 +120,8 @@ normalize_to_rank = jp2en[normalize_to_rank[0]] + normalize_to_rank[1:]
 save_filename = "amae.pickle"
 cached_data_dirty = False
 cached_data = {}
+if not os.path.exists("media"):
+    os.mkdir("media")
 if os.path.exists(save_filename):
     with open(save_filename, "rb") as fp: cached_data = pickle.load(fp)
 
@@ -243,6 +245,7 @@ def addGradingScoresNorm(game):
     game['gradingScoresNorm'] = None
     if game['modeId'] in modeId2RoomColor:
         game['gradingScoresNorm'] = p['gradingScore']
+        game['score'] = p['score'] - 25000
         if game['placement'] == 4:
             game['gradingScoresNorm'] += last_place_normalize[modeId2RoomLength[game['modeId']]][level_dan(p['level'])]
 
@@ -293,6 +296,7 @@ mostCommonRoomType = {'t':None, 'count':0}
 attrstr = 'gradingScoresNorm'
 #attrstr = 'copper'
 #attrstr = 'placement'
+#attrstr = 'score'
 for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
     attr = list(reversed([None if game['modeId']!=roomTypeInt else game[attrstr] for game in X]))
     for window_size_div in [1,2,4]:
@@ -322,7 +326,7 @@ if attrstr == 'gradingScoresNorm':
 #ax2 = plt.twinx()
 #ax2.plot(range(len(gradingScoresAvg)), gradingScoresAvg, label=f'Moving Average ({window_size} games)', color='orange')
 #ax2.set_ylabel('score', color='orange')
-plt.savefig(f'Expected_Score_{pname}.png')
+plt.savefig(f'media/Expected_Score_{pname}.png')
 
 # blank figure for spacing
 f,ax = plt.subplots()
@@ -360,7 +364,7 @@ plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
 plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
 plt.tick_params(labelright=True)
-plt.savefig(f'Rank_Progress_{pname}.png')
+plt.savefig(f'media/Rank_Progress_{pname}.png')
 
 if cached_data_dirty:
     with open(save_filename, "wb") as fp: pickle.dump(cached_data, fp)

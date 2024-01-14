@@ -5650,6 +5650,7 @@
                     n != a.mobile && location.reload()
                 }
                   , A = function() {
+                    // aolsen where do the names come from?
                     a.names = et(a.targetSeat, k, x.getDisplayNameType())
                 }
                   , W = "https://twitter.com/share?text=NAGA解析レポート&hashtags=NAGA解析&url=".concat(window.location.href)
@@ -5887,6 +5888,7 @@
                     window.addEventListener("resize", M),
                     M(),
                     k = playerInfo.name,
+                    // aolsen where do names come from
                     a.names = playerInfo.name,
                     a.dan = playerInfo.dan,
                     a.rate = playerInfo.rate,

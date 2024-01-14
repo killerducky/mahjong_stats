@@ -13,25 +13,21 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
+import argparse
 
-def file_cached_func(filename, func):
-    if os.path.exists(filename):
+def file_cached_func(args, filename, func):
+    if args.usecache and os.path.exists(filename):
         with open(filename, "rb") as fp: data = pickle.load(fp)
-        return data
     else:
         data = func()
         with open(filename, "wb") as fp: pickle.dump(data, fp)
-        return func
+    return data
 
 def get_pred(driver, url):
+    print(f'get {url}')
     response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser') #, encoding='UTF-8')
-    script_tag = soup.find('script')
-    contents = str(script_tag.contents)
-    contents = re.findall(r'const pred = ([\s\S]*}]])', contents)[0]
-    pred = json.loads(str(contents))
     data = {}
-    data['pred'] = pred
+    data['soup'] = BeautifulSoup(response.content, 'html.parser') #, encoding='UTF-8')
     data['W_tilemap'] = {
             "1m": 0,
             "2m": 1,
@@ -220,11 +216,19 @@ def print_player(p, file):
           p['和了局数'], p['和了得点'], p['放銃局数'], p['放銃失点'], p['立直局数'], p['副露局数'], p['打牌選択回数'],
           sep='\t', end='\t', file=file)
 
-def parse_pred(data):
-    badMoveCount = [0]*4
-    dahaiDecisionCount = [0]*4
-    nagaRate = [0]*4
-    notMatchMoveCount = [0]*4
+def parse_html(data, args):
+    script = str(data['soup'].find('script').contents)
+    # Use non-greedy .*? to be sure not to get too much
+    data['pred'] = re.findall(r'const pred = (.*?}]])', script)[0]
+    data['pred'] = json.loads(str(data['pred']))
+    data['playerInfo'] = re.findall(r'const playerInfo = (.*?})', script)[0]
+    data['playerInfo'] = re.sub(r"\\\'", "\"", data['playerInfo'])
+    data['playerInfo'] = json.loads(str(data['playerInfo']))
+
+    data['badMoveCount'] = [0]*4
+    data['dahaiDecisionCount'] = [0]*4
+    data['nagaRate'] = [0]*4
+    data['notMatchMoveCount'] = [0]*4
     for kyoku in data['pred']:   # kyoku = hand number e.g. East 2 Bonus 1 (but here just an array)
         for i, turn in enumerate(kyoku):
             msg = turn['info']['msg']
@@ -236,7 +240,9 @@ def parse_pred(data):
             # 1,2,3, = chi left,mid,right (check order?)
             # 4 = pon
             # 5 = kan? maybe?
-            if msg['type'] in ('chi', 'pon'): 
+            if False and msg['type'] in ('chi', 'pon'): 
+                print(msg)
+                print(kyoku[-1])
                 for actor, v in kyoku[i-1]['huro'].items():
                     probs = list(v[0].values())
                     total = sum(probs)
@@ -244,9 +250,8 @@ def parse_pred(data):
                     #if probs[0] < 0.99:
                         #print('huro', turn['huro'])
                         #print('ratio', actor, probs)
-                print(msg['type'], 1-probs[0], kyoku[i-1]['huro'])
+                #print(msg['type'], 1-probs[0], kyoku[i-1]['huro'])
                 #sys.exit()
-            # TODO: clean up these conditions, it's sorta a mess right now
             if msg['type'] in ('tsumo', 'chi', 'pon') and not msg['reached']:
                 real_dahai = msg['real_dahai']
                 if not real_dahai or real_dahai == "?": continue # Not sure why this happens
@@ -258,7 +263,7 @@ def parse_pred(data):
                 # dahai_pred is multiplied by 1000 to get integers
                 # info->msg->pred_dahai gives the actual tile with highest probability for each bot
                 actor = turn['info']['msg']['actor']
-                dahaiDecisionCount[actor] += 1
+                data['dahaiDecisionCount'][actor] += 1
                 best_dahai = turn['info']['msg']['pred_dahai'][0]
                 best_index = math.floor(data['W_tilemap'][best_dahai]) # Red 5s are encoded as e.g. "5mr": 4.1. Use floor to make it just plain 4
                 best_prob = turn['dahai_pred'][0][best_index]/10000.0
@@ -266,20 +271,38 @@ def parse_pred(data):
                 real_index = math.floor(data['W_tilemap'][real_dahai])
                 real_prob = turn['dahai_pred'][0][real_index]/10000.0
                 diff = abs(best_prob - real_prob) # They use abs, but best should always be highest so not actually needed?
-                nagaRate[actor] += diff
-                if real_prob < 0.05: badMoveCount[actor] += 1
-                if best_index != real_index: notMatchMoveCount[actor] += 1
+                data['nagaRate'][actor] += diff
+                if real_prob < 0.05: data['badMoveCount'][actor] += 1
+                if best_index != real_index: data['notMatchMoveCount'][actor] += 1
                 #print(actor, real_dahai, real_prob, best_dahai, best_prob, diff, dahaiDecisionCount[actor], badMoveCount[actor], nagaRate[actor], turn['info']['msg']['reached'])
             else:
                 pass
     print("stats")
     print("count, match, score, bad")
+    actor_order = []
     for actor in range(4):
-        print('{:d} {:.1f} {:.1f} {:.1f}'.format(
-            dahaiDecisionCount[actor],
-            (dahaiDecisionCount[actor] - notMatchMoveCount[actor])/dahaiDecisionCount[actor]*100,
-            (dahaiDecisionCount[actor] - nagaRate[actor])/dahaiDecisionCount[actor]*100,
-            (badMoveCount[actor]/dahaiDecisionCount[actor]*100)
+        if data['playerInfo']['name'][actor] != args.name:
+            actor_order += [actor]
+        else:
+            actor_order = [actor] + actor_order
+    for actor in actor_order:
+        print('{:d} {:12s} {:3d} {:2.1f} {:2.1f} {:2.1f}'.format(
+            actor,
+            data['playerInfo']['name'][actor],
+            data['dahaiDecisionCount'][actor],
+            (data['dahaiDecisionCount'][actor] - data['notMatchMoveCount'][actor])/data['dahaiDecisionCount'][actor]*100,
+            (data['dahaiDecisionCount'][actor] - data['nagaRate'][actor])/data['dahaiDecisionCount'][actor]*100,
+            (data['badMoveCount'][actor]/data['dahaiDecisionCount'][actor]*100)
+        ))
+    print("again for copy paste")
+    for actor in actor_order:
+        print('{:2.1f}, {:2.1f}, {:2.1f}'.format(
+            #actor,
+            #data['playerInfo']['name'][actor],
+            #data['dahaiDecisionCount'][actor],
+            (data['dahaiDecisionCount'][actor] - data['notMatchMoveCount'][actor])/data['dahaiDecisionCount'][actor]*100,
+            (data['dahaiDecisionCount'][actor] - data['nagaRate'][actor])/data['dahaiDecisionCount'][actor]*100,
+            (data['badMoveCount'][actor]/data['dahaiDecisionCount'][actor]*100)
         ))
 
 # key: "dahai",
@@ -306,26 +329,41 @@ def parse_pred(data):
 #     ))
 
 
+def main():
+    parser = argparse.ArgumentParser(description="Naga log parser")
+    parser.add_argument('-f', '--filein', help='File with urls')
+    parser.add_argument('-u', '--url', help='URL')
+    parser.add_argument('-n', '--name', help='Our username')
+    parser.add_argument('-c', '--usecache', help='Read from disk cache', action='store_true')
+    args = parser.parse_args()
 
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.page_load_strategy = "none"
+    options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+    #driver = Chrome(options=options)
+    driver = None
+    file = None
+    if args.filein:
+        with open("naga.txt", "r", encoding="utf-8-sig") as f:
+            url_list = f.read().splitlines()
+        file = open("output.txt", "w", encoding="utf-8-sig")
+    elif args.url:
+        url_list = [args.url]
+    else:
+        raise Exception("Must provide -f or -u")
 
-options = webdriver.ChromeOptions()
-options.add_argument("--headless")
-options.page_load_strategy = "none"
-options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
-#driver = Chrome(options=options)
-driver = None
-with open("naga.txt", "r", encoding="utf-8-sig") as f:
-    url_list = f.read().splitlines()
-file = open("output.txt", "w", encoding="utf-8-sig")
-for url in url_list:
-    #driver.get(url)
-    #log = get_browser_log(driver)
-    #page = driver.page_source
-    #player_stat = get_player_stat(log, page)
-    #game_info = get_game_info(log, page)
-    #print_data_for_spreadsheet(game_info, player_stat, file, "Razout")
-    pred = file_cached_func("naga_data.pickle", lambda: get_pred(driver, url))
-    #pred = get_pred_using_index_js(driver, url)
-    parse_pred(pred)
-file.close()
-#driver.quit()
+    for url in url_list:
+        #driver.get(url)
+        #log = get_browser_log(driver)
+        #page = driver.page_source
+        #player_stat = get_player_stat(log, page)
+        #game_info = get_game_info(log, page)
+        #print_data_for_spreadsheet(game_info, player_stat, file, "Razout")
+        data = file_cached_func(args, "naga_data.pickle", lambda: get_pred(driver, url))
+        #pred = get_pred_using_index_js(driver, url)
+        parse_html(data, args)
+    file and file.close()
+    #driver.quit()
+
+if __name__ == '__main__': main()
