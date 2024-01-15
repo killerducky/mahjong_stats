@@ -225,10 +225,10 @@ def parse_html(data, args):
     data['playerInfo'] = re.sub(r"\\\'", "\"", data['playerInfo'])
     data['playerInfo'] = json.loads(str(data['playerInfo']))
 
-    data['badMoveCount'] = [0]*4
     data['dahaiDecisionCount'] = [0]*4
-    data['nagaRate'] = [0]*4
     data['notMatchMoveCount'] = [0]*4
+    data['nagaRate'] = [0]*4
+    data['badMoveCount'] = [0]*4
     for kyoku in data['pred']:   # kyoku = hand number e.g. East 2 Bonus 1 (but here just an array)
         for i, turn in enumerate(kyoku):
             msg = turn['info']['msg']
