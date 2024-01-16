@@ -312,7 +312,7 @@ for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
         ema = calcMovingAvg(attr, window_size//window_size_div)
         plt.plot(range(x_start, len(ema)), ema[x_start:], label=f'{roomTypeStr} ({window_size//window_size_div} game half life)')
 plt.legend()
-plt.title(f'Expected Score per round assuming {normalize_to_rank} ({pname})')
+plt.title(f'Expected Score per round assuming {normalize_to_rank} ({pname} {pidx})')
 plt.xlabel('Game Number')
 plt.xlim(x_start, len(X))
 plt.ylabel('Expected Score')
@@ -359,7 +359,7 @@ for i, game in enumerate(X[::-1]):
         plt.plot([i, i+1], [base*2, base*2], color='k', lw=1.5)
       pre_level, pre_pt = level, pt
 print(X[0])
-plt.title(f'Rank Points Trend[{jp2en[モード選択]}]({pname})', fontsize=20)
+plt.title(f'Rank Points Trend[{jp2en[モード選択]}]({pname} {pidx})', fontsize=20)
 plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
 plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
 plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])

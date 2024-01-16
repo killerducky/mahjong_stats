@@ -5,7 +5,7 @@ from joblib import Memory
 import argparse
 from bs4 import BeautifulSoup
 
-memory = Memory("cachedir")
+memory = Memory("cachedir", verbose=0)
 @memory.cache
 def get_html(url):
     response = requests.get(url)
@@ -14,6 +14,8 @@ def get_html(url):
     return data
 
 def parse_html(data):
+    pid = data['soup'].find(string='player id')
+    pid = int(pid.next.contents[0])
     dahaiDecisionCount = 0
     notMatchMoveCount = 0
     nagaRate = 0
@@ -42,12 +44,15 @@ def parse_html(data):
         m_discard = roles[1].contents[0].find_next('use')['href']
         #print(p_discard, m_discard)
         if p_discard != m_discard: notMatchMoveCount += 1
-        data = d.find('tbody')
-        for row in data.findChildren('tr'):
+        tbody = d.find('tbody')
+        for row in tbody.findChildren('tr'):
             td = row.findChild('td')
-            tile = td.contents[1].findChild('use')['href']
-            i = td.contents[2].findChildren('span', {'class':'int'})
-            f = td.contents[2].findChildren('span', {'class':'frac'})
+            if "Riichi" in td.contents[0]:
+                tile = None
+            else:
+                tile = td.contents[1].findChild('use')['href']
+            i = td.findChildren('span', {'class':'int'})
+            f = td.findChildren('span', {'class':'frac'})
             Qval = float(f'{i[0].contents[0]}{f[0].contents[0]}')
             Pval = float(f'{i[1].contents[0]}{f[1].contents[0]}')/100
             if tile == m_discard:
@@ -58,8 +63,11 @@ def parse_html(data):
                     badMoveCount += 1
         diff = m_Pval - p_Pval
         nagaRate += diff
-    print('count, match, score, bad')
-    print('{:3d}, {:2.1f}, {:2.1f}, {:2.1f}'.format(
+    #print('count, match, score, bad')
+
+    print('{:1d}, {:s}, {:3d}, {:2.1f}, {:2.1f}, {:2.1f}'.format(
+        pid,
+        data['url'],
         dahaiDecisionCount,
         (dahaiDecisionCount - notMatchMoveCount)/dahaiDecisionCount*100,
         (dahaiDecisionCount - nagaRate)/dahaiDecisionCount*100,
@@ -70,11 +78,18 @@ def parse_html(data):
 def main():
     parser = argparse.ArgumentParser(description="Naga log parser")
     parser.add_argument('-u', '--url', help='URL')
-    parser.add_argument('-n', '--name', help='Our username')
-    parser.add_argument('-c', '--usecache', help='Read from disk cache', action='store_true')
+    parser.add_argument('-f', '--file', help='File with list of urls')
     args = parser.parse_args()
-    data = get_html(args.url)
-    parse_html(data)
+    if args.file:
+        with open(args.file, "r") as f:
+            url_list = f.read().splitlines()
+        url_list = [item for item in url_list if item.startswith("http")]
+    else:
+        url_list = [args.url]
+    for url in url_list:
+        data = get_html(url)
+        data['url'] = url
+        parse_html(data)
 
 if __name__ == "__main__":
     main()
