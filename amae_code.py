@@ -56,7 +56,6 @@ def notebook_params():
 
 # Some constants that might get added to parser:
 window_size = 400
-上端 = 5000 # @param {type:'integer'} # Vertical max for rank points
 左端 = 0
 右端 = 100000
 
@@ -337,7 +336,6 @@ def blank_graph():
 
 def graph_rank_point_trend(stack):
     pre_level = start_level
-    #plt.figure(facecolor='w', figsize=(15, 5))
     fig, ax1 = plt.subplots(facecolor='w', figsize=(15, 5))
     左端 = x_start
     if 左端 == 0:
@@ -369,7 +367,8 @@ def graph_rank_point_trend(stack):
               plt.text(i+3, sum_base-base+100, f'{s[0]}\n{s[1:]}', fontsize=12)
               plt.vlines(i, sum_base-base, sum_base+base, color='k')
               plt.vlines(i, pre_sum_base-pre_base, pre_sum_base+pre_base, color='k')
-            print(f'Game #{i} Previous Length:', i-pre_i, datetime.fromtimestamp(game['startTime']).strftime("%Y-%m-%d"), s)
+            if stack: # Only print once. Randomly pick stack mode to do it
+                print(f'Game #{i} Previous Length:', i-pre_i, datetime.fromtimestamp(game['startTime']).strftime("%Y-%m-%d"), s)
             pre_i = i
           pt += data['gradingScore'] * 5 if level // 100 % 100 >= 7 else data['gradingScore']
           if 左端 <= i <= 右端:
@@ -379,7 +378,7 @@ def graph_rank_point_trend(stack):
             plt.plot([i, i+1], [0+sum_base, 0+sum_base], color='k', lw=1.5)          # middle
             plt.plot([i, i+1], [base+sum_base, base+sum_base], color='k', lw=1.5)    # top
           pre_level, pre_pt = level, pt
-    plt.title(f'Rank Points Trend[{jp2en[モード選択]}]({pname} {pidx})', fontsize=20)
+    plt.title(f'Rank Points Trend [{jp2en[モード選択]}] {pname}[{pidx}]', fontsize=20)
     plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
     plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(-11,11)], fontsize=10)
     ax1.set_xlim([左端, min(右端, i+1)]); ax1.set_ylim([min_y, max_y+100])
