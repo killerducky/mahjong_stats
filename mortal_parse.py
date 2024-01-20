@@ -16,6 +16,8 @@ def get_html(url):
 def parse_html(data):
     pid = data['soup'].find(string='player id')
     pid = int(pid.next.contents[0])
+    rating = data['soup'].find(string='rating')
+    rating = float(rating.next.contents[0])
     dahaiDecisionCount = 0
     notMatchMoveCount = 0
     nagaRate = 0
@@ -65,13 +67,14 @@ def parse_html(data):
         nagaRate += diff
     #print('count, match, score, bad')
 
-    print('{:1d}, {:s}, {:3d}, {:2.1f}, {:2.1f}, {:2.1f}'.format(
+    print('{:1d}, {:s}, {:3d}, {:2.1f}, {:2.1f}, {:2.1f}, {:2.1f}'.format(
         pid,
         data['url'],
         dahaiDecisionCount,
         (dahaiDecisionCount - notMatchMoveCount)/dahaiDecisionCount*100,
         (dahaiDecisionCount - nagaRate)/dahaiDecisionCount*100,
-        (badMoveCount/dahaiDecisionCount*100)
+        (badMoveCount/dahaiDecisionCount*100),
+        rating
     ))
 
 
@@ -83,7 +86,7 @@ def main():
     if args.file:
         with open(args.file, "r") as f:
             url_list = f.read().splitlines()
-        url_list = [item for item in url_list if item.startswith("http")]
+        url_list = [item for item in url_list if item.startswith("https://mjai")]
     else:
         url_list = [args.url]
     for url in url_list:

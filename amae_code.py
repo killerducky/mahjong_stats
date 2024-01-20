@@ -152,12 +152,12 @@ if モード選択 == '四麻':
     # 11 = 4p Tonpuusen Jade room, 8 = 4p Tonpuusent Gold room
     mode = '16,15,12,11,9,8'
     Color = {16: 'r', 15: 'r', 12: 'g', 11: 'g', 9: 'y', 8: 'y'}
-    pre_level = 10301
+    start_level = 10301
 elif モード選択 == '三麻':
     s0 = 'https://5-data.amae-koromo.com/api/v2/pl3/'
     mode = '26,24,22,25,23,21'
     Color = {26: 'r', 25: 'r', 24: 'g', 23: 'g', 22: 'y', 21: 'y'}
-    pre_level = 20301
+    start_level = 20301
 
 if update_cached_data or not pname in cached_data:
     if not cached_data_dirty:
@@ -334,37 +334,60 @@ f.set_visible(False)
 f.set_figheight(0.25)
 f.set_figwidth(0.01)
 
-plt.figure(facecolor='w', figsize=(15, 5))
-左端 = x_start
-if 左端 == 0:
-  plt.text(3, 100, f'E\n1', fontsize=12)
-pre_pt, pt, base = 600, 600, 600
-for i, game in enumerate(X[::-1]):
-  for data in game['players']:
-    if data['accountId'] == pid:
-      level = data['level']
-      s = level_dan(level)
-      if pre_level != level:
-        print(f'Game #{i}', datetime.fromtimestamp(game['startTime']).strftime("%Y-%m-%d"), s)
-        if 左端 <= i <= 右端:
-          plt.text(i+3, 100, f'{s[0]}\n{s[1:]}', fontsize=12)
-          plt.vlines(i, 0, max(level_pt_base(level), level_pt_base(pre_level))*2, color='k')
-        base = level_pt_base(level)
-        pt = pre_pt = base
-      pt += data['gradingScore'] * 5 if level // 100 % 100 >= 7 else data['gradingScore']
-      if 左端 <= i <= 右端:
-        plt.plot([i, i+1], [pre_pt, pt], color='k', lw=1.5)
-        plt.fill_between([i, i+1], [pre_pt, pt], color=Color[game['modeId']], alpha=0.05)
-        plt.plot([i, i+1], [base, base], color='k', lw=1.5)
-        plt.plot([i, i+1], [base*2, base*2], color='k', lw=1.5)
-      pre_level, pre_pt = level, pt
-print(X[0])
-plt.title(f'Rank Points Trend[{jp2en[モード選択]}]({pname} {pidx})', fontsize=20)
-plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
-plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
-plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, 上端+100])
-plt.tick_params(labelright=True)
-plt.savefig(f'media/Rank_Progress_{pname}.png')
+def graph_rank_point_trend(stack):
+    pre_level = start_level
+    fig, ax1 = plt.subplots()
+    plt.figure(facecolor='w', figsize=(15, 5))
+    左端 = x_start
+    if 左端 == 0:
+      plt.text(3, 100, f'E\n1', fontsize=12)
+    pre_pt, pt, base, pre_base, sum_base_x2, pre_sum_base_x2, max_y = 600, 600, 600, None, 0, None, 1200
+    for i, game in enumerate(X[::-1]):
+      for data in game['players']:
+        if data['accountId'] == pid:
+          level = data['level']
+          s = level_dan(level)
+          if pre_level != level:
+            pre_base = base
+            pre_sum_base_x2 = sum_base_x2
+            base = level_pt_base(level)
+            if stack: 
+                sum_base_x2 += pre_base*2 if (base > pre_base) else -base*2
+                if sum_base_x2 > max_y: max_y = sum_base_x2 + base*2
+            else:
+                if base*2 > max_y: max_y = base*2
+            pt = pre_pt = base
+            if 左端 <= i <= 右端:
+              if stack:
+                plt.text(i-15, base+sum_base_x2, f'{s[0]}\n{s[1:]}', fontsize=12)
+              else:
+                plt.text(i+3, 100, f'{s[0]}\n{s[1:]}', fontsize=12)
+              plt.vlines(i, sum_base_x2, base*2+sum_base_x2, color='k')
+              plt.vlines(i, pre_sum_base_x2, pre_base*2+pre_sum_base_x2, color='k')
+            print(f'Game #{i}', datetime.fromtimestamp(game['startTime']).strftime("%Y-%m-%d"), s, base, sum_base_x2)
+          pt += data['gradingScore'] * 5 if level // 100 % 100 >= 7 else data['gradingScore']
+          if 左端 <= i <= 右端:
+            plt.plot([i, i+1], [pre_pt+sum_base_x2, pt+sum_base_x2], color='k', lw=1.5)
+            plt.fill_between([i, i+1], [pre_pt+sum_base_x2, pt+sum_base_x2], [sum_base_x2, sum_base_x2], color=Color[game['modeId']], alpha=0.05)
+            plt.plot([i, i+1], [0+sum_base_x2, 0+sum_base_x2], color='k', lw=1.5)
+            plt.plot([i, i+1], [base+sum_base_x2, base+sum_base_x2], color='k', lw=1.5)
+            plt.plot([i, i+1], [base*2+sum_base_x2, base*2+sum_base_x2], color='k', lw=1.5)
+          pre_level, pre_pt = level, pt
+    plt.title(f'Rank Points Trend[{jp2en[モード選択]}]({pname} {pidx})', fontsize=20)
+    plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
+    plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
+    plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, max_y+100])
+    #plt.tick_params(labelright=True)
+    ax2 = ax1.twinx()
+    ax2.tick_params(axis='y', labelcolor='red', labelright=True)
+    ax2.set_yticks([i*50 for i in range(11)])
+    if stack:
+        plt.savefig(f'media/Rank_Progress_{pname}_stacked.png')
+    else:
+        plt.savefig(f'media/Rank_Progress_{pname}_unstacked.png')
+
+graph_rank_point_trend(True)
+graph_rank_point_trend(False)
 
 if cached_data_dirty:
     with open(save_filename, "wb") as fp: pickle.dump(cached_data, fp)
