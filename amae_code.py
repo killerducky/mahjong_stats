@@ -1,5 +1,6 @@
 import requests, json, time
 import matplotlib.pyplot as plt
+#colab
 #!pip -q -q -q install japanize-matplotlib
 import japanize_matplotlib
 from tqdm import tqdm
@@ -11,6 +12,9 @@ import math
 from datetime import datetime, timezone
 import argparse
 import traceback
+#colab
+#from google.colab import output
+#output.no_vertical_scroll()
 
 # @markdown # Mahjong Soul Expected Score per round
 # @markdown Based on [Original collab script](https://colab.research.google.com/drive/1puwnp-_k3aHV8trHYInX9HGsBgnJ-hYY#scrollTo=Uoyjy8mCJ21c)
@@ -38,12 +42,12 @@ def notebook_params():
     gold_south = True # @param {type:"boolean"}
     gold_east = True # @param {type:"boolean"}
     # @markdown Exclude game types played less than X% of the time
-    min_percent_game_type = 5 # @param {type:"number"}
+    min_percent_game_type = 10 # @param {type:"number"}
     max_games = 9999 # @param {type:"number"}
     args = [
         'amae_code.py', # fake filename
         '-n', name,
-        '-i', idx,
+        '-i', str(idx),
         '-r', norm_rank,
         '--min_percent_game_type', str(min_percent_game_type),
         '--max_games', str(max_games),
@@ -97,7 +101,7 @@ parser.add_argument('--no_js', action='store_true')
 parser.add_argument('--no_je', action='store_true')
 parser.add_argument('--no_gs', action='store_true')
 parser.add_argument('--no_ge', action='store_true')
-parser.add_argument('--min_percent_game_type', default=5, type=float)
+parser.add_argument('--min_percent_game_type', default=10, type=float)
 args = parser.parse_args()
 
 pname = args.name
@@ -355,7 +359,7 @@ def graph_rank_point_trend(stack):
             pre_sum_base = sum_base
             base = level_pt_base(level)
             if stack: 
-                sum_base += pre_base if (base > pre_base) else -pre_base
+                sum_base += pre_base if (base > pre_base) else -base
                 max_y = max(max_y, sum_base+base)
                 min_y = min(min_y, sum_base-base)
             else:
