@@ -328,20 +328,25 @@ if attrstr == 'gradingScoresNorm':
 #ax2.set_ylabel('score', color='orange')
 plt.savefig(f'media/Expected_Score_{pname}.png')
 
-# blank figure for spacing
-f,ax = plt.subplots()
-f.set_visible(False)
-f.set_figheight(0.25)
-f.set_figwidth(0.01)
+def blank_graph():
+    # blank figure for spacing
+    f,ax = plt.subplots()
+    f.set_visible(False)
+    f.set_figheight(0.25)
+    f.set_figwidth(0.01)
 
 def graph_rank_point_trend(stack):
     pre_level = start_level
-    fig, ax1 = plt.subplots()
-    plt.figure(facecolor='w', figsize=(15, 5))
+    #plt.figure(facecolor='w', figsize=(15, 5))
+    fig, ax1 = plt.subplots(facecolor='w', figsize=(15, 5))
     左端 = x_start
     if 左端 == 0:
       plt.text(3, 100, f'E\n1', fontsize=12)
-    pre_pt, pt, base, pre_base, sum_base_x2, pre_sum_base_x2, max_y = 600, 600, 600, None, 0, None, 1200
+    pre_pt, pt, base, sum_base = 600, 600, 600, 600
+    pre_base, pre_sum_base = None, None
+    pre_i = 0
+    min_y = 0
+    max_y = 1200
     for i, game in enumerate(X[::-1]):
       for data in game['players']:
         if data['accountId'] == pid:
@@ -349,44 +354,51 @@ def graph_rank_point_trend(stack):
           s = level_dan(level)
           if pre_level != level:
             pre_base = base
-            pre_sum_base_x2 = sum_base_x2
+            pre_sum_base = sum_base
             base = level_pt_base(level)
             if stack: 
-                sum_base_x2 += pre_base*2 if (base > pre_base) else -base*2
-                if sum_base_x2 > max_y: max_y = sum_base_x2 + base*2
+                sum_base += pre_base if (base > pre_base) else -pre_base
+                max_y = max(max_y, sum_base+base)
+                min_y = min(min_y, sum_base-base)
             else:
-                if base*2 > max_y: max_y = base*2
+                sum_base = base
+                max_y = max(max_y, base*2)
+                min_y = 0 # never changes in this mode
             pt = pre_pt = base
             if 左端 <= i <= 右端:
-              if stack:
-                plt.text(i-15, base+sum_base_x2, f'{s[0]}\n{s[1:]}', fontsize=12)
-              else:
-                plt.text(i+3, 100, f'{s[0]}\n{s[1:]}', fontsize=12)
-              plt.vlines(i, sum_base_x2, base*2+sum_base_x2, color='k')
-              plt.vlines(i, pre_sum_base_x2, pre_base*2+pre_sum_base_x2, color='k')
-            print(f'Game #{i}', datetime.fromtimestamp(game['startTime']).strftime("%Y-%m-%d"), s, base, sum_base_x2)
+              plt.text(i+3, sum_base-base+100, f'{s[0]}\n{s[1:]}', fontsize=12)
+              plt.vlines(i, sum_base-base, sum_base+base, color='k')
+              plt.vlines(i, pre_sum_base-pre_base, pre_sum_base+pre_base, color='k')
+            print(f'Game #{i} Previous Length:', i-pre_i, datetime.fromtimestamp(game['startTime']).strftime("%Y-%m-%d"), s)
+            pre_i = i
           pt += data['gradingScore'] * 5 if level // 100 % 100 >= 7 else data['gradingScore']
           if 左端 <= i <= 右端:
-            plt.plot([i, i+1], [pre_pt+sum_base_x2, pt+sum_base_x2], color='k', lw=1.5)
-            plt.fill_between([i, i+1], [pre_pt+sum_base_x2, pt+sum_base_x2], [sum_base_x2, sum_base_x2], color=Color[game['modeId']], alpha=0.05)
-            plt.plot([i, i+1], [0+sum_base_x2, 0+sum_base_x2], color='k', lw=1.5)
-            plt.plot([i, i+1], [base+sum_base_x2, base+sum_base_x2], color='k', lw=1.5)
-            plt.plot([i, i+1], [base*2+sum_base_x2, base*2+sum_base_x2], color='k', lw=1.5)
+            plt.plot([i, i+1], [pre_pt+sum_base-base, pt+sum_base-base], color='k', lw=1.5)
+            plt.fill_between([i, i+1], [pre_pt+sum_base-base, pt+sum_base-base], [sum_base-base, sum_base-base], color=Color[game['modeId']], alpha=0.05)
+            plt.plot([i, i+1], [-base+sum_base, -base+sum_base], color='k', lw=1.5)  # bottom
+            plt.plot([i, i+1], [0+sum_base, 0+sum_base], color='k', lw=1.5)          # middle
+            plt.plot([i, i+1], [base+sum_base, base+sum_base], color='k', lw=1.5)    # top
           pre_level, pre_pt = level, pt
     plt.title(f'Rank Points Trend[{jp2en[モード選択]}]({pname} {pidx})', fontsize=20)
     plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
-    plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(11)], fontsize=10)
-    plt.xlim([左端, min(右端, i+1)]); plt.ylim([0, max_y+100])
-    #plt.tick_params(labelright=True)
+    plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(-11,11)], fontsize=10)
+    ax1.set_xlim([左端, min(右端, i+1)]); ax1.set_ylim([min_y, max_y+100])
     ax2 = ax1.twinx()
-    ax2.tick_params(axis='y', labelcolor='red', labelright=True)
-    ax2.set_yticks([i*50 for i in range(11)])
+    ax2.tick_params(axis='y', right=True, labelright=True)
+    if stack:
+        ax2.set_yticks([i*1000+sum_base-base for i in range(-11,11)], [i*1000 for i in range(-11,11)])
+        ax2.set_ylim([min_y, max_y+100])
+    else:
+        ax2.set_yticks([i*1000 for i in range(11)])
+        ax2.set_ylim([min_y, max_y+100])
     if stack:
         plt.savefig(f'media/Rank_Progress_{pname}_stacked.png')
     else:
         plt.savefig(f'media/Rank_Progress_{pname}_unstacked.png')
 
+blank_graph()
 graph_rank_point_trend(True)
+blank_graph()
 graph_rank_point_trend(False)
 
 if cached_data_dirty:
