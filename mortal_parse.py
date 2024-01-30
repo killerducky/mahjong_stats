@@ -4,6 +4,7 @@ import os
 from joblib import Memory
 import argparse
 from bs4 import BeautifulSoup
+import json
 
 memory = Memory("cachedir", verbose=0)
 @memory.cache
@@ -67,16 +68,28 @@ def parse_html(data):
         nagaRate += diff
     #print('count, match, score, bad')
 
-    print('{:1d}, {:s}, {:3d}, {:2.1f}, {:2.1f}, {:2.1f}, {:2.1f}'.format(
+    details = data['soup'].find_all('textarea')
+    json_log = json.loads(details[-1].contents[0])
+    final_scores = json_log['log'][0][1]
+    final_diff = json_log['log'][0][16][1]
+    final_scores = [x+y for x,y in zip(final_scores, final_diff)]
+    # Hack to break ties. p0 = first dealer = wins ties so add the most
+    final_scores = [x+y for x,y in zip(final_scores, [3, 2, 1, 0])] 
+    sorted_scores = sorted(final_scores)
+    placement = [4-sorted_scores.index(score) for score in final_scores]
+    final_scores = [x+y for x,y in zip(final_scores, [-3, -2, -1, 0])]  #undo
+
+    print('{:1d}, {:s}, {:1d}, {:5d}, {:3d}, {:2.1f}, {:2.1f}, {:2.1f}, {:2.1f}'.format(
         pid,
         data['url'],
+        placement[pid],
+        final_scores[pid],
         dahaiDecisionCount,
         (dahaiDecisionCount - notMatchMoveCount)/dahaiDecisionCount*100,
         (dahaiDecisionCount - nagaRate)/dahaiDecisionCount*100,
         (badMoveCount/dahaiDecisionCount*100),
         rating
     ))
-
 
 def main():
     parser = argparse.ArgumentParser(description="Naga log parser")
@@ -86,7 +99,7 @@ def main():
     if args.file:
         with open(args.file, "r") as f:
             url_list = f.read().splitlines()
-        url_list = [item for item in url_list if item.startswith("https://mjai")]
+        url_list = [item.strip() for item in url_list if item.startswith("https://mjai")]
     else:
         url_list = [args.url]
     for url in url_list:

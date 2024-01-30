@@ -315,7 +315,7 @@ for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
         ema = calcMovingAvg(attr, window_size//window_size_div)
         plt.plot(range(x_start, len(ema)), ema[x_start:], label=f'{roomTypeStr} ({window_size//window_size_div} game half life)')
 plt.legend()
-plt.title(f'Expected Score per round assuming {normalize_to_rank} ({pname} {pidx})')
+plt.title(f'Expected Score per round assuming {normalize_to_rank} {pname}[{pidx}]')
 plt.xlabel('Game Number')
 plt.xlim(x_start, len(X))
 plt.ylabel('Expected Score')
