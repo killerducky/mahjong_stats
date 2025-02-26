@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import requests, json, time
 import matplotlib.pyplot as plt
 #colab
@@ -12,6 +13,7 @@ import math
 from datetime import datetime, timezone
 import argparse
 import traceback
+from collections import defaultdict
 #colab
 #from google.colab import output
 #output.no_vertical_scroll()
@@ -131,15 +133,32 @@ if os.path.exists(save_filename):
 def exponential_moving_average(data, half_life):
     alpha = 1 - 0.5 ** (1 / half_life)
     ema = [sum(data[:half_life]) / min(half_life, len(data))]  # Initial SMA for the first half_life values
+    #ema = [sum(data[:half_life*2]) / min(half_life*2, len(data))]  # Initial SMA for the first half_life values
     for i in range(1, len(data)):
         ema.append(alpha * data[i] + (1 - alpha) * ema[i - 1])
     return ema
+
+def ema_no_delay(data, half_life):
+    normal = exponential_moving_average(data, half_life//2)
+    rev = exponential_moving_average(data[::-1], half_life//2)[::-1]
+    ema = [(x + y) / 2 for x, y in zip(normal, rev)]
+    return ema
+
+def sliding_window_average(data, half_life):
+    result = [sum(data[:half_life]) / min(half_life, len(data))] * half_life # Initial SMA for the first half_life values
+    for i in range(len(data) - half_life + 1):
+        window = data[i:i+half_life]  # Get the sublist of the next n elements
+        print(window[0:3])
+        result.append(sum(window) / half_life)  # Calculate the average of the window
+    return result
 
 def calcMovingAvg(data, window_size):
     filtered = [v for v in data if v is not None]
     if len(filtered) == 0:
         return [None] * len(data)
     averaged = exponential_moving_average(filtered, window_size)
+    #averaged = ema_no_delay(filtered, window_size)
+    #averaged = sliding_window_average(filtered, window_size)
     final_result = []
     averaged_iter = iter(averaged)
     for value in data:
@@ -312,6 +331,7 @@ for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
         if roomTypeStr == 'Gold E' and args.no_ge: continue
         if count > mostCommonRoomType['count']:
             mostCommonRoomType = {'t':roomTypeInt, 'count':count}
+        # ema = list(reversed(calcMovingAvg(list(reversed(attr)), window_size//window_size_div)))
         ema = calcMovingAvg(attr, window_size//window_size_div)
         plt.plot(range(x_start, len(ema)), ema[x_start:], label=f'{roomTypeStr} ({window_size//window_size_div} game half life)')
 plt.legend()
@@ -338,6 +358,30 @@ def blank_graph():
     f.set_figheight(0.25)
     f.set_figwidth(0.01)
 
+# Problems:
+# Rates will change over time also, but that shouldn't really effect this I guess?
+def last_stats():
+    prev_placement = None
+    results = defaultdict(int)
+    for i, game in enumerate(X[::-1]):
+        if not modeId2RoomColor[game['modeId']] == 'J':
+            continue
+        if prev_placement:
+            results[(prev_placement, game['placement'])] += 1
+        prev_placement = game['placement']
+    print(results)
+    s = ""
+    for p in range(1,4+1):
+        s += f'When prev result = {p}: '
+        tot = 0
+        for n in range(1,4+1):
+            s += f'{results[(p,n)]} '
+            tot += results[(p,n)]
+        if tot == 0: tot=1 # dumb way to avoid div by 0
+        s += f' Total = {tot}  4th rate = {results[(p,4)]/tot*100:0.1f}'
+        s += "\n"
+    print(s)
+
 def graph_rank_point_trend(stack):
     pre_level = start_level
     fig, ax1 = plt.subplots(facecolor='w', figsize=(15, 5))
@@ -355,6 +399,15 @@ def graph_rank_point_trend(stack):
           level = data['level']
           s = level_dan(level)
           if pre_level != level:
+            if stack: # Only print once. Randomly pick stack mode to do it
+              prev_game = X[-(pre_i+1)]
+              prev_date = datetime.fromtimestamp(prev_game["startTime"]).strftime("%Y-%m-%d")
+              avg_points = (pt-base)/(i-pre_i+1)
+              #norm_last = last_place_penalty[modeId2RoomLength[game['modeId']][normalize_to_rank]] - last_place_penalty[modeId2RoomLength[game['modeId']][s]]
+              #print(norm_last)
+              #norm_points = last_place_normalize[modeId2RoomLength[game['modeId']]][normalize_to_rank]/4
+              #norm_avg_points = avg_points + norm_points
+              print(f'{level_dan(pre_level)} Game #{i+1:5d} Len: {i-pre_i+1:4d} {prev_date} {datetime.fromtimestamp(game["startTime"]).strftime("%Y-%m-%d")} {base:4d} {pt:4d} {avg_points:6.2f}')
             pre_base = base
             pre_sum_base = sum_base
             base = level_pt_base(level)
@@ -371,8 +424,6 @@ def graph_rank_point_trend(stack):
               plt.text(i+3, sum_base-base+100, f'{s[0]}\n{s[1:]}', fontsize=12)
               plt.vlines(i, sum_base-base, sum_base+base, color='k')
               plt.vlines(i, pre_sum_base-pre_base, pre_sum_base+pre_base, color='k')
-            if stack: # Only print once. Randomly pick stack mode to do it
-                print(f'Game #{i} Previous Length:', i-pre_i, datetime.fromtimestamp(game['startTime']).strftime("%Y-%m-%d"), s)
             pre_i = i
           pt += data['gradingScore'] * 5 if level // 100 % 100 >= 7 else data['gradingScore']
           if 左端 <= i <= 右端:
@@ -382,9 +433,20 @@ def graph_rank_point_trend(stack):
             plt.plot([i, i+1], [0+sum_base, 0+sum_base], color='k', lw=1.5)          # middle
             plt.plot([i, i+1], [base+sum_base, base+sum_base], color='k', lw=1.5)    # top
           pre_level, pre_pt = level, pt
+    if stack: # Only print once. Randomly pick stack mode to do it
+        prev_game = X[-(pre_i+1)]
+        prev_date = datetime.fromtimestamp(prev_game["startTime"]).strftime("%Y-%m-%d")
+        avg_points = (pt-base)/(i-pre_i+1)
+        #norm_last = last_place_penalty[modeId2RoomLength[game['modeId']][normalize_to_rank]] - last_place_penalty[modeId2RoomLength[game['modeId']][s]]
+        #print(norm_last)
+        #norm_points = last_place_normalize[modeId2RoomLength[game['modeId']]][normalize_to_rank]/4
+        #norm_avg_points = avg_points + norm_points
+        eta = min(base*2-pt,pt)/avg_points
+        print(f'{level_dan(pre_level)} Game #{i+1:5d} Len: {i-pre_i+1:4d} {prev_date} {datetime.fromtimestamp(game["startTime"]).strftime("%Y-%m-%d")} {base:4d} {pt:4d} {avg_points:6.2f} ETA:{eta:6.0f}')
     plt.title(f'Rank Points Trend [{jp2en[モード選択]}] {pname}[{pidx}]', fontsize=20)
     plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
     plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(-11,11)], fontsize=10)
+    plt.minorticks_on()
     ax1.set_xlim([左端, min(右端, i+1)]); ax1.set_ylim([min_y, max_y+100])
     ax2 = ax1.twinx()
     ax2.tick_params(axis='y', right=True, labelright=True)
@@ -403,6 +465,8 @@ blank_graph()
 graph_rank_point_trend(True)
 blank_graph()
 graph_rank_point_trend(False)
+print(X[0])
+last_stats()
 
 if cached_data_dirty:
     with open(save_filename, "wb") as fp: pickle.dump(cached_data, fp)
