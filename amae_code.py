@@ -432,6 +432,9 @@ def graph_rank_point_trend(stack):
             plt.plot([i, i+1], [-base+sum_base, -base+sum_base], color='k', lw=1.5)  # bottom
             plt.plot([i, i+1], [0+sum_base, 0+sum_base], color='k', lw=1.5)          # middle
             plt.plot([i, i+1], [base+sum_base, base+sum_base], color='k', lw=1.5)    # top
+          # If they drop below E1, they will restart with base points next
+          if pt < 0 and s == 'E1':
+              pt = level_pt_base(level)
           pre_level, pre_pt = level, pt
     if stack: # Only print once. Randomly pick stack mode to do it
         prev_game = X[-(pre_i+1)]
