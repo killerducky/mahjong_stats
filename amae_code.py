@@ -104,6 +104,8 @@ parser.add_argument('--no_je', action='store_true')
 parser.add_argument('--no_gs', action='store_true')
 parser.add_argument('--no_ge', action='store_true')
 parser.add_argument('--min_percent_game_type', default=10, type=float)
+parser.add_argument('--win_mults', nargs='+', type=int, help='Array of window size multipliers', default=[1,2,4])
+
 args = parser.parse_args()
 
 pname = args.name
@@ -148,15 +150,15 @@ def sliding_window_average(data, half_life):
     result = [sum(data[:half_life]) / min(half_life, len(data))] * half_life # Initial SMA for the first half_life values
     for i in range(len(data) - half_life + 1):
         window = data[i:i+half_life]  # Get the sublist of the next n elements
-        print(window[0:3])
         result.append(sum(window) / half_life)  # Calculate the average of the window
     return result
 
-def calcMovingAvg(data, window_size):
+def calcMovingAvg(data, window_size, lambdaAvg):
     filtered = [v for v in data if v is not None]
     if len(filtered) == 0:
         return [None] * len(data)
-    averaged = exponential_moving_average(filtered, window_size)
+    averaged = lambdaAvg(filtered, window_size)
+    #averaged = exponential_moving_average(filtered, window_size)
     #averaged = ema_no_delay(filtered, window_size)
     #averaged = sliding_window_average(filtered, window_size)
     final_result = []
@@ -296,6 +298,11 @@ def addTableDifficulty(game):
 
 for game in reversed(X):
     game['orig_idx'] = game['players'].index(next(player for player in game['players'] if player['accountId'] == pid))
+    p = game['players'][game['orig_idx']]
+    #game['p_is_celestial'] = False
+    #if game['modeId'] in modeId2RoomColor and level_dan(['level'])=='C':
+    #    game['p_is_celestial'] = True
+    #    print('C game')
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     game['placement'] = 4 - players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
     addGradingScoresNorm(game)
@@ -321,19 +328,22 @@ attrstr = 'gradingScoresNorm'
 #attrstr = 'score'
 for roomTypeInt, roomTypeStr in modeId2RoomTypeFull.items():
     attr = list(reversed([None if game['modeId']!=roomTypeInt else game[attrstr] for game in X]))
-    for window_size_div in [1,2,4]:
-        # Don't graph if player has very few of this type, or user filtered
-        count = len([element for element in attr if element is not None])
-        if count/len(attr) <= args.min_percent_game_type/100.0: continue
-        if roomTypeStr == 'Jade S' and args.no_js: continue
-        if roomTypeStr == 'Jade E' and args.no_je: continue
-        if roomTypeStr == 'Gold S' and args.no_gs: continue
-        if roomTypeStr == 'Gold E' and args.no_ge: continue
-        if count > mostCommonRoomType['count']:
-            mostCommonRoomType = {'t':roomTypeInt, 'count':count}
-        # ema = list(reversed(calcMovingAvg(list(reversed(attr)), window_size//window_size_div)))
-        ema = calcMovingAvg(attr, window_size//window_size_div)
-        plt.plot(range(x_start, len(ema)), ema[x_start:], label=f'{roomTypeStr} ({window_size//window_size_div} game half life)')
+    #for avgLamda in [exponential_moving_average, sliding_window_average]:
+    for avgLamda in [exponential_moving_average]:
+    #for avgLamda in [sliding_window_average]:
+        for window_size_div in args.win_mults:
+            # Don't graph if player has very few of this type, or user filtered
+            count = len([element for element in attr if element is not None])
+            if count/len(attr) <= args.min_percent_game_type/100.0: continue
+            if roomTypeStr == 'Jade S' and args.no_js: continue
+            if roomTypeStr == 'Jade E' and args.no_je: continue
+            if roomTypeStr == 'Gold S' and args.no_gs: continue
+            if roomTypeStr == 'Gold E' and args.no_ge: continue
+            if count > mostCommonRoomType['count']:
+                mostCommonRoomType = {'t':roomTypeInt, 'count':count}
+            # ema = list(reversed(calcMovingAvg(list(reversed(attr)), window_size//window_size_div)))
+            ema = calcMovingAvg(attr, window_size//window_size_div, avgLamda)
+            plt.plot(range(x_start, len(ema)), ema[x_start:], label=f'{roomTypeStr} ({window_size//window_size_div} game half life)')
 plt.legend()
 plt.title(f'Expected Score per round assuming {normalize_to_rank} {pname}[{pidx}]')
 plt.xlabel('Game Number')
@@ -393,11 +403,14 @@ def graph_rank_point_trend(stack):
     pre_i = 0
     min_y = 0
     max_y = 1200
+    this_last_count = 0
     for i, game in enumerate(X[::-1]):
       for data in game['players']:
         if data['accountId'] == pid:
           level = data['level']
           s = level_dan(level)
+          if game['placement']==4:
+              this_last_count += 1
           if pre_level != level:
             if stack: # Only print once. Randomly pick stack mode to do it
               prev_game = X[-(pre_i+1)]
@@ -407,10 +420,11 @@ def graph_rank_point_trend(stack):
               #print(norm_last)
               #norm_points = last_place_normalize[modeId2RoomLength[game['modeId']]][normalize_to_rank]/4
               #norm_avg_points = avg_points + norm_points
-              print(f'{level_dan(pre_level)} Game #{i+1:5d} Len: {i-pre_i+1:4d} {prev_date} {datetime.fromtimestamp(game["startTime"]).strftime("%Y-%m-%d")} {base:4d} {pt:4d} {avg_points:6.2f}')
+              print(f'{level_dan(pre_level)} Game #{i+1:5d} Len: {i-pre_i+1:4d} {prev_date} {datetime.fromtimestamp(game["startTime"]).strftime("%Y-%m-%d")} {base:4d} {pt:4d} {avg_points:6.2f} {this_last_count}')
             pre_base = base
             pre_sum_base = sum_base
             base = level_pt_base(level)
+            this_last_count = 0
             if stack: 
                 sum_base += pre_base if (base > pre_base) else -base
                 max_y = max(max_y, sum_base+base)
@@ -445,7 +459,7 @@ def graph_rank_point_trend(stack):
         #norm_points = last_place_normalize[modeId2RoomLength[game['modeId']]][normalize_to_rank]/4
         #norm_avg_points = avg_points + norm_points
         eta = min(base*2-pt,pt)/avg_points
-        print(f'{level_dan(pre_level)} Game #{i+1:5d} Len: {i-pre_i+1:4d} {prev_date} {datetime.fromtimestamp(game["startTime"]).strftime("%Y-%m-%d")} {base:4d} {pt:4d} {avg_points:6.2f} ETA:{eta:6.0f}')
+        print(f'{level_dan(pre_level)} Game #{i+1:5d} Len: {i-pre_i+1:4d} {prev_date} {datetime.fromtimestamp(game["startTime"]).strftime("%Y-%m-%d")} {base:4d} {pt:4d} {avg_points:6.2f} {this_last_count} ETA:{eta:6.0f}')
     plt.title(f'Rank Points Trend [{jp2en[モード選択]}] {pname}[{pidx}]', fontsize=20)
     plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
     plt.xticks(fontsize=10); plt.yticks([i*1000 for i in range(-11,11)], fontsize=10)
