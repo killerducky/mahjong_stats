@@ -75,7 +75,7 @@ async function loadPlayerData(nickname) {
 async function main() {
     let games
     games = await loadPlayerData(pname)
-    // console.log(games)
+    console.log(games)
     // console.log(games[0])
     
     let results = []
