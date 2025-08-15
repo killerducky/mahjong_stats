@@ -9,6 +9,12 @@ const NORMALIZE_TO_RANK = RANK_LINES[NORMALIZE_TO_RANK_LINE]
 
 const generateBtn = document.getElementById('generate');
 const pnameBtn = document.getElementById('pname')
+const xminEl = document.getElementById('xmin')
+const xmaxEl = document.getElementById('xmax')
+let actualXmaxValue
+xminEl.addEventListener('change', ()=>{ Plotly.relayout('Chart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })});
+xmaxEl.addEventListener('change', ()=>{ Plotly.relayout('Chart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })});
+// xmaxEl.addEventListener('change', ()=>{ stats.vmax = Number(vmaxEl.value); draw(); });
 
 generateBtn.addEventListener('click', ()=>{
   pname = pnameBtn.value
@@ -169,6 +175,8 @@ async function main() {
     const yValues = traces.flatMap(trace => trace.y); // combine all y values
     const yMin = Math.min(...yValues);
     const yMax = Math.max(...yValues);
+    actualXmaxValue = x.length
+
     // console.log(traces)
 
     const layout = {
