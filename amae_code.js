@@ -55,7 +55,7 @@ async function loadPlayerData(nickname) {
     data = await res.json()
     return data
 }
-
+    
 async function main() {
     let games
     games = await loadPlayerData(pname)
@@ -80,42 +80,32 @@ async function main() {
     }
     console.log(results)
 
-    let chartDict = {
-        type: 'line',
-        data: {
-            labels: results.map((_, i) => i+1),
-            datasets: [
-            ]
-        },
-        options: {
-            plugins: {
-                zoom: {
-                    zoom: {
-                        wheel: {
-                            enabled: true,
-                        },
-                        mode: 'x'
-                    },
-                    pan: {
-                        enabled: true,
-                        mode: 'x',
-                        modifierKey: null
-                    },
-                },
-            }
-        }
-    }
-    for (let window_size of [100, 200, 400]) {
-        chartDict.data.datasets.push({
-            label: `Expected Score assuming ${NORMALIZE_TO_RANK} ${window_size}`,
-            data: exponential_moving_average(gradingScoresNorm, window_size)
-        })
-    }
+    const x = gradingScoresNorm.map((_, i) => i + 1); // x-axis: game numbers
+    const windowSizes = [100, 200, 400];
 
-    new Chart(
-        document.getElementById('ES'),
-        chartDict
-    )
+    const traces = windowSizes.map(window_size => ({
+        x: x,
+        y: exponential_moving_average(gradingScoresNorm, window_size),
+        mode: 'lines',
+        name: `Expected Score assuming ${NORMALIZE_TO_RANK} ${window_size}`
+    }));
+
+    const layout = {
+        title: 'Expected Scores with EMA',
+        xaxis: { title: 'Game #' },
+        yaxis: { 
+            title: 'Score',
+            fixedrange: true
+        },
+        legend: {
+            x: 0.5,
+            y: -0.2,
+            xanchor: 'center',
+            yanchor: 'top',
+        }
+    };
+
+    Plotly.newPlot('Chart', traces, layout, { responsive: true });
 }
 
 main();

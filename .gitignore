@@ -1,6 +1,6 @@
 *.pickle
 *.png
-*.html
+stats_all.html
 output.txt
 naga.txt
 hi

@@ -1,0 +1,23 @@
+<div id="imageContainer"></div>
+<script>
+    const names = [
+        "KillerDucky"
+    ]; 
+
+function generateImageHtml(round) {
+    var html = "";
+    r = String(round).padStart(4, '0')
+    html += `<img src="media/num_rank_hist_${r}.png" style="padding-left:0x">`;
+    html += `<img src="media/avg_rating_hist_${r}.png" style="padding-left:0x"><br>`;
+    return html;
+}
+
+const container = document.getElementById('imageContainer');
+container.innerHTML += `<img src="media/rank_hist.png" style="padding-left:0x"><br>`
+// for (let round=0; round<= 2000; round += 200) {
+//     container.innerHTML += generateImageHtml(round);
+// }
+container.innerHTML += generateImageHtml(400);
+container.innerHTML += generateImageHtml(1000);
+container.innerHTML += generateImageHtml(2000);
+</script>

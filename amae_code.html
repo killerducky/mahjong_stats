@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lane="en"></html>
+
+<script>
+let X = [];
+let s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/';
+let pname = 'KillerDucky';
+let mode = '16,15,12,11,9,8';
+
+
+//let start = pdata.latest_timestamp;
+const limit = 500; // Named constant for the limit
+
+async function fetchData() {
+    console.log(`${s0}search_player/${pname}`);
+    const response = await fetch(`${s0}search_player/${pname}`);
+    const pdata = (await response.json())[0];
+    console.log('pdata', pdata);
+    const pid = pdata['id'];
+    console.log('pid', pid);
+    var start = pdata['latest_timestamp']
+
+    var X = [];
+    for (let i = 0; i < 20; i++) {
+        const s1 = `${s0}player_records/${pid}/${start}/1262304000000?limit=${limit}&mode=${mode}&descending=true&tag=`;
+        //try {
+            console.log(s1);
+            console.log(pid);
+            const response = await fetch(s1);
+            const games = await response.json();
+            console.log(games);
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            const length = games.length;
+            if (length === 0 || length < limit) {
+                break;
+            }
+
+            start = games[games.length - 1].startTime - 1;
+            X = X.concat(games);
+        //} catch (error) {
+        //    console.error(`Error fetching data: ${error}`);
+         //   break;
+        //}
+    }
+    console.log(X);
+}
+
+console.log("hi")
+fetchData();
+</script>
+
+</body>
+</html>
