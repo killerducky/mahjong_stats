@@ -8,7 +8,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const JSON_DATA_FILENAME = 'amae_data.json'
-const NORMALIZE_TO_RANK = 'S1'
 const app = express();
 const PORT = 3000;
 const s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'

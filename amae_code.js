@@ -80,21 +80,32 @@ async function main() {
     }
     console.log(results)
 
-    let chartDict =  
-        {
-            type: 'line',
-            data: {
-                labels: results.map((_, i) => i+1),
-                datasets: [
-                ]
+    let chartDict = {
+        type: 'line',
+        data: {
+            labels: results.map((_, i) => i+1),
+            datasets: [
+            ]
+        },
+        options: {
+            plugins: {
+                zoom: {
+                    zoom: {
+                        wheel: {
+                            enabled: true,
+                        },
+                        mode: 'x'
+                    },
+                    pan: {
+                        enabled: true,
+                        mode: 'x',
+                        modifierKey: null
+                    },
+                },
             }
         }
-    // for (let window_size of [100, 200, 400]) {
-    for (let window_size of [100]) {
-        chartDict.data.datasets.push({
-            label: `Expected Score ${window_size}`,
-            data: exponential_moving_average(results, window_size)
-        })
+    }
+    for (let window_size of [100, 200, 400]) {
         chartDict.data.datasets.push({
             label: `Expected Score assuming ${NORMALIZE_TO_RANK} ${window_size}`,
             data: exponential_moving_average(gradingScoresNorm, window_size)
