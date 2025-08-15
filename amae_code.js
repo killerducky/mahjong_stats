@@ -49,6 +49,22 @@ function exponential_moving_average(data, half_life) {
     return ema
 }
 
+function slidingWindowAverage(data, halfLife) {
+    const n = data.length;
+    const initialSMA = data.slice(0, halfLife).reduce((sum, val) => sum + val, 0) / Math.min(halfLife, n);
+    
+    // Fill the first halfLife values with initial SMA
+    const result = Array(Math.min(halfLife, n)).fill(initialSMA);
+    
+    for (let i = 0; i <= n - halfLife; i++) {
+        const window = data.slice(i, i + halfLife);
+        const avg = window.reduce((sum, val) => sum + val, 0) / halfLife;
+        result.push(avg);
+    }
+    
+    return result;
+}
+
 async function loadPlayerData(nickname) {
     let res, data
     res = await fetch(`/player/${nickname}`)
@@ -83,19 +99,33 @@ async function main() {
     const x = gradingScoresNorm.map((_, i) => i + 1); // x-axis: game numbers
     const windowSizes = [100, 200, 400];
 
-    const traces = windowSizes.map(window_size => ({
+    let traces = windowSizes.map(window_size => ({
         x: x,
         y: exponential_moving_average(gradingScoresNorm, window_size),
         mode: 'lines',
-        name: `Expected Score assuming ${NORMALIZE_TO_RANK} ${window_size}`
+        name: `EMA ${window_size}`
     }));
+    traces.push(...windowSizes.map(window_size => ({
+        x: x,
+        y: slidingWindowAverage(gradingScoresNorm, window_size*2),
+        mode: 'lines',
+        name: `Sliding ${window_size*2}`,
+        visible: 'legendonly',
+    })));
+    const yValues = traces.flatMap(trace => trace.y); // combine all y values
+    const yMin = Math.min(...yValues);
+    const yMax = Math.max(...yValues);
+    console.log(traces)
 
     const layout = {
-        title: 'Expected Scores with EMA',
+        title: {
+            text: `Expected Scores assuming ${NORMALIZE_TO_RANK}`,
+        },
         xaxis: { title: 'Game #' },
         yaxis: { 
             title: 'Score',
-            fixedrange: true
+            fixedrange: true,
+            range: [yMin-5, yMax+5],
         },
         legend: {
             x: 0.5,
