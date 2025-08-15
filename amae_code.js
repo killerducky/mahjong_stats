@@ -54,8 +54,15 @@ const d = ['?', 'E', 'M', 'S', '?', 'C'];
 // const p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45};
 const level_dan = level => `${d[Math.floor(level / 100) % 100 - 2]}${level % 100}`;
 const level_pt_base = (level) => {
+    let p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
     return (Math.floor(level / 100) % 100 >= 6) ? 5000 : p[level % 1000] * 100;
 };
+let level_pt_sum_base = {}
+let sum = 0
+for (let level of [10301, 10302, 10303, 10401, 10402, 10403, 10501, 10502, 10503]) {
+    sum += level_pt_base(level)
+    level_pt_sum_base[level] = sum
+}
 
 function exponential_moving_average(data, half_life) {
     const alpha = 1 - Math.pow(0.5, 1 / half_life)
@@ -128,9 +135,11 @@ async function main() {
         if (game.player.placement == 4) {
             game.player.gradingScoreNorm += last_place_normalize[modeId2RoomLength[game['modeId']]][level_dan(game.player['level'])]
         }
-        game.player.rankPoints = game.player.gradingScore
-        if (prevGame && prevGame.player.level == game.player.level) {
-            game.player.rankPoints += prevGame.player.rankPoints
+        if (!prevGame || prevGame.player.level != game.player.level) {
+            game.player.rankPoints = level_pt_sum_base[game.player.level] + game.player.gradingScore
+            console.log(game.player.rankPoints)
+        } else {
+            game.player.rankPoints = prevGame.player.rankPoints + game.player.gradingScore
         }
         prevGame = game
         // console.log(game.player)
@@ -189,24 +198,6 @@ async function main() {
         ],
         annotations: [
         ],
-        // updatemenus: [{
-        //     type: "buttons",
-        //     direction: "right",
-        //     x: 0.7,
-        //     y: 1.2,
-        //     buttons: [
-        //         {
-        //             label: "X+",
-        //             method: "relayout",
-        //             args: ["xaxis.range", [0, 50]]
-        //         },
-        //         {
-        //             label: "X-",
-        //             method: "relayout",
-        //             args: ["xaxis.range", [0,100]]
-        //         }
-        //     ]
-        // }]
     };
     for (let line=0; line<6; line++) {
         layout.shapes.push(
@@ -277,24 +268,47 @@ async function main() {
         ],
     }
     prevGame = null
+    let prevChange = 0
     for (let [index, game] of games.entries()) {
-        if (prevGame && prevGame.player.level != game.player.level) {
-            layout.shapes.push(
-                {
-                    type: 'line', 
-                    x0: index, 
-                    x1: index,
-                    y0: 0,
-                    y1: 1,
-                    xref: 'x', 
-                    yref: 'paper',
-                    line: {
-                        color: 'black', 
-                        width: 0.5,
-                        dash: 'solid',
+        if (prevGame && prevGame.player.level != game.player.level || index == games.length-1) {
+            console.log("level=", game.player.level, level_dan(game.player.level))
+            for (let x of [prevChange, index]) {
+                layout.shapes.push(
+                    {
+                        type: 'line', 
+                        x0: x, 
+                        x1: x,
+                        y0: level_pt_sum_base[prevGame.player.level] - level_pt_base(prevGame.player.level),
+                        y1: level_pt_sum_base[prevGame.player.level] + level_pt_base(prevGame.player.level),
+                        xref: 'x', 
+                        yref: 'y',
+                        line: {
+                            color: 'black', 
+                            width: 0.5,
+                            dash: 'solid',
+                        }
                     }
-                }
-            )
+                )
+            }
+            for (let y of [-1, 0, 1]) {
+                layout.shapes.push(
+                    {
+                        type: 'line',
+                        x0: prevChange,
+                        x1: index,
+                        y0: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
+                        y1: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
+                        xref: 'x',
+                        yref: 'y',
+                                            line: {
+                            color: 'black', 
+                            width: 0.5,
+                            dash: 'solid',
+                        }
+                    }
+                )
+            }
+            prevChange = index
         }
         prevGame = game
     }
