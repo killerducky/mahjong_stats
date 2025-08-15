@@ -41,7 +41,7 @@ app.get('/player/:nickname', async (req, res) => {
           const result = data1[pidx];
           
           const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-          let games = []
+          games = []
           let start = result.latest_timestamp
 
           for (let i=0; i<20; i++) {
@@ -57,21 +57,16 @@ app.get('/player/:nickname', async (req, res) => {
                 break;
             }
             // console.log(these_games[0])
-            console.log(these_games[these_games.length-1].startTime-1)
+            // console.log(these_games[these_games.length-1].startTime-1)
             start = these_games[these_games.length-1].startTime-1
             games = games.concat(these_games)
             if (length < 500) {
                 break;
             }
-            console.log("goagain", games.length)
           }
-          
-          console.log('save')
           await fs.promises.writeFile(JSON_DATA_FILENAME, JSON.stringify(games, null, 2));
-          throw new Error('I think there is something wrong with the format of games if it falls through here?')
-          // reading from file works. Using games directly doesn't?
         } catch (err) {
-            console.log('err caught')
+            console.log('Error caught')
             res.status(500).json({ error: err.message });
         }
     }

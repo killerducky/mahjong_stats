@@ -1,11 +1,19 @@
 const NUM_PLAYERS = 4 // only 4 supported for now
 
-const pname = 'KillerDucky'
+let pname = ''
 const pid = 120517763 // this should actually come from the first server call!
 const pidx = 0
 const NORMALIZE_TO_RANK_LINE = 3 // S1
 const RANK_LINES = ['M1', 'M2', 'M3', 'S1', 'S2', 'S3']
 const NORMALIZE_TO_RANK = RANK_LINES[NORMALIZE_TO_RANK_LINE]
+
+const generateBtn = document.getElementById('generate');
+const pnameBtn = document.getElementById('pname')
+
+generateBtn.addEventListener('click', ()=>{
+  pname = pnameBtn.value
+  main();
+});
 
 const s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
 // # 12 = 4p Hanchan Jade room, 9 = 4p Hanchan Gold room
@@ -182,7 +190,25 @@ async function main() {
         shapes: [
         ],
         annotations: [
-        ]
+        ],
+        // updatemenus: [{
+        //     type: "buttons",
+        //     direction: "right",
+        //     x: 0.7,
+        //     y: 1.2,
+        //     buttons: [
+        //         {
+        //             label: "X+",
+        //             method: "relayout",
+        //             args: ["xaxis.range", [0, 50]]
+        //         },
+        //         {
+        //             label: "X-",
+        //             method: "relayout",
+        //             args: ["xaxis.range", [0,100]]
+        //         }
+        //     ]
+        // }]
     };
     for (let line=0; line<6; line++) {
         layout.shapes.push(
@@ -219,9 +245,6 @@ async function main() {
 
         )
     }
-
-
     Plotly.newPlot('Chart', traces, layout, { responsive: true });
 }
 
-main();
