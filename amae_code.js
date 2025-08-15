@@ -67,6 +67,25 @@ function slidingWindowAverage(data, halfLife) {
     return result;
 }
 
+function calcMovingAverage(data, windowSize, lambdaAvg) {
+    const filtered = data.filter(v => v !== null)
+    if (filtered.length == 0) {
+        return Array(data.length).fill(null)
+    }
+    const averaged = lambdaAvg(filtered, windowSize)
+    const finalResult = []
+    let i=0;
+    for (const value of data) {
+        if (value === null) {
+            finalResult.push(null);
+        } else {
+            finalResult.push(averaged[i]);
+            i++;
+        }
+    }
+    return finalResult
+}
+
 async function loadPlayerData(nickname) {
     let res, data
     res = await fetch(`/player/${nickname}`)
@@ -97,24 +116,48 @@ async function main() {
         results.push(game.player.gradingScore)
         gradingScoresNorm.push(game.player.gradingScoreNorm)
     }
-    console.log(results)
+    console.log(games)
 
     const x = gradingScoresNorm.map((_, i) => i + 1); // x-axis: game numbers
     const windowSizes = [100, 200, 400];
 
-    let traces = windowSizes.map(window_size => ({
-        x: x,
-        y: exponential_moving_average(gradingScoresNorm, window_size),
-        mode: 'lines',
-        name: `EMA ${window_size}`
-    }));
-    traces.push(...windowSizes.map(window_size => ({
-        x: x,
-        y: slidingWindowAverage(gradingScoresNorm, window_size*2),
-        mode: 'lines',
-        name: `Sliding ${window_size*2}`,
-        visible: 'legendonly',
-    })));
+    let traces = []
+
+    for (let [lambdaStr, lambdaFunc] of [["EMA", exponential_moving_average], ["Sliding", slidingWindowAverage]]) {
+        for (const [key, value] of Object.entries(modeId2RoomTypeFull)) {
+            let numMatch = games.filter(game => game.modeId == key).length
+            let attr = games.map(game => game.modeId == key ? game.player.gradingScoreNorm : null)
+            if (numMatch/games.length < 0.05) {
+                continue
+            }
+            for (let windowSize of windowSizes) {
+                let ema = calcMovingAverage(attr, windowSize, lambdaFunc)
+                traces.push(
+                    {
+                        x: x,
+                        y: ema,
+                        mode: 'lines',
+                        name: `${value} ${lambdaStr} ${windowSize}`,
+                        visible: lambdaStr == "Sliding" ? "legendonly" : true,
+                    }
+                )
+            }
+        }
+    }
+
+    // traces.push(...windowSizes.map(window_size => ({
+    //     x: x,
+    //     y: exponential_moving_average(gradingScoresNorm, window_size),
+    //     mode: 'lines',
+    //     name: `EMA ${window_size}`
+    // })));
+    // traces.push(...windowSizes.map(window_size => ({
+    //     x: x,
+    //     y: slidingWindowAverage(gradingScoresNorm, window_size*2),
+    //     mode: 'lines',
+    //     name: `Sliding ${window_size*2}`,
+    //     visible: 'legendonly',
+    // })));
     const yValues = traces.flatMap(trace => trace.y); // combine all y values
     const yMin = Math.min(...yValues);
     const yMax = Math.max(...yValues);
@@ -139,19 +182,6 @@ async function main() {
         shapes: [
         ],
         annotations: [
-            {
-                x: 0,
-                y: 4+1,
-                xref: 'paper',
-                yref: 'y',
-                text: 'S2',
-                showarrow: false,
-                xanchor: screenLeft,
-                font: {
-                    color: 'blue',
-                    size: 12,
-                }
-            }
         ]
     };
     for (let line=0; line<6; line++) {
@@ -160,8 +190,8 @@ async function main() {
                 type: 'line', 
                 x0: 0, 
                 x1: 1,
-                y0: (line-NORMALIZE_TO_RANK_LINE)*4,
-                y1: (line-NORMALIZE_TO_RANK_LINE)*4,
+                y0: (line-NORMALIZE_TO_RANK_LINE)*15.0/4.0,
+                y1: (line-NORMALIZE_TO_RANK_LINE)*15.0/4.0,
                 xref: 'paper', 
                 yref: 'y',
                 line: {
@@ -175,7 +205,7 @@ async function main() {
         layout.annotations.push(
             {
                 x: 0,
-                y: (line-NORMALIZE_TO_RANK_LINE)*4+1,
+                y: (line-NORMALIZE_TO_RANK_LINE)*15.0/4.0+1,
                 xref: 'paper',
                 yref: 'y',
                 text: RANK_LINES[line],
