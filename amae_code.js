@@ -3,7 +3,9 @@ const NUM_PLAYERS = 4 // only 4 supported for now
 const pname = 'KillerDucky'
 const pid = 120517763 // this should actually come from the first server call!
 const pidx = 0
-const NORMALIZE_TO_RANK = 'S1'
+const NORMALIZE_TO_RANK_LINE = 3 // S1
+const RANK_LINES = ['M1', 'M2', 'M3', 'S1', 'S2', 'S3']
+const NORMALIZE_TO_RANK = RANK_LINES[NORMALIZE_TO_RANK_LINE]
 
 const s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
 // # 12 = 4p Hanchan Jade room, 9 = 4p Hanchan Gold room
@@ -69,6 +71,7 @@ async function loadPlayerData(nickname) {
     let res, data
     res = await fetch(`/player/${nickname}`)
     data = await res.json()
+    data.reverse()
     return data
 }
     
@@ -115,7 +118,7 @@ async function main() {
     const yValues = traces.flatMap(trace => trace.y); // combine all y values
     const yMin = Math.min(...yValues);
     const yMax = Math.max(...yValues);
-    console.log(traces)
+    // console.log(traces)
 
     const layout = {
         title: {
@@ -124,16 +127,69 @@ async function main() {
         xaxis: { title: 'Game #' },
         yaxis: { 
             title: 'Score',
-            fixedrange: true,
-            range: [yMin-5, yMax+5],
+            // fixedrange: true,
+            // range: [yMin-5, yMax+5],
         },
         legend: {
             x: 0.5,
             y: -0.2,
             xanchor: 'center',
             yanchor: 'top',
-        }
+        },
+        shapes: [
+        ],
+        annotations: [
+            {
+                x: 0,
+                y: 4+1,
+                xref: 'paper',
+                yref: 'y',
+                text: 'S2',
+                showarrow: false,
+                xanchor: screenLeft,
+                font: {
+                    color: 'blue',
+                    size: 12,
+                }
+            }
+        ]
     };
+    for (let line=0; line<6; line++) {
+        layout.shapes.push(
+            {
+                type: 'line', 
+                x0: 0, 
+                x1: 1,
+                y0: (line-NORMALIZE_TO_RANK_LINE)*4,
+                y1: (line-NORMALIZE_TO_RANK_LINE)*4,
+                xref: 'paper', 
+                yref: 'y',
+                line: {
+                    color: 'blue', 
+                    width: 0.5,
+                    dash: 'solid',
+                }
+
+            }
+        )
+        layout.annotations.push(
+            {
+                x: 0,
+                y: (line-NORMALIZE_TO_RANK_LINE)*4+1,
+                xref: 'paper',
+                yref: 'y',
+                text: RANK_LINES[line],
+                showarrow: false,
+                xanchor: screenLeft,
+                font: {
+                    color: 'blue',
+                    size: 12,
+                }
+            }
+
+        )
+    }
+
 
     Plotly.newPlot('Chart', traces, layout, { responsive: true });
 }
