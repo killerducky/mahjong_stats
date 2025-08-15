@@ -18,8 +18,15 @@ from collections import defaultdict
 #from google.colab import output
 #output.no_vertical_scroll()
 
+# colab
+def is_interactive():
+    return False
+    #return True
+
 # @markdown # Mahjong Soul Expected Score per round
 # @markdown Based on [Original collab script](https://colab.research.google.com/drive/1puwnp-_k3aHV8trHYInX9HGsBgnJ-hYY#scrollTo=Uoyjy8mCJ21c)
+# @markdown
+# @markdown Usage: put your username (and idx if needed) and click the run cell button (left column)
 # @markdown
 # @markdown Graphs a moving average of your expected score per round played.
 # @markdown There are several averages that respond more or less quickly.
@@ -28,8 +35,6 @@ from collections import defaultdict
 # @markdown the player pools are different.
 # @markdown
 # @markdown Only 4 player is supported.
-# @markdown
-# @markdown Usage: put your username (and idx if needed) and click the run cell button.
 # @markdown
 # @markdown ---
 
@@ -84,10 +89,6 @@ window_size = 400
 # @markdown
 # @markdown East games gain/lose ~50% less points compared to South games.
 # @markdown The blue lines will be drawn according to the game type with the most data.
-
-def is_interactive():
-    rstk = traceback.extract_stack(limit=1)[0]
-    return rstk[0].startswith("<ipython")
 
 if is_interactive():
     sys.argv = notebook_params()
@@ -212,7 +213,7 @@ if update_cached_data:
 X = cached_data[pname]['X']
 
 #d = ['士', '傑', '豪', '聖', '天', '魂']
-d = ['?', 'E', 'M', 'S', 'C', '?']
+d = ['?', 'E', 'M', 'S', '?', 'C']
 p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
 level_dan = lambda level: f'{d[level // 100 % 100 - 2]}{level % 100}'
 level_pt_base = lambda level: 5000 if level // 100 % 100 >= 6 else p[level % 1000] * 100
@@ -298,11 +299,14 @@ def addTableDifficulty(game):
 
 for game in reversed(X):
     game['orig_idx'] = game['players'].index(next(player for player in game['players'] if player['accountId'] == pid))
-    p = game['players'][game['orig_idx']]
-    #game['p_is_celestial'] = False
-    #if game['modeId'] in modeId2RoomColor and level_dan(['level'])=='C':
-    #    game['p_is_celestial'] = True
-    #    print('C game')
+    tmp_p = game['players'][game['orig_idx']]
+    game['p_is_celestial'] = False
+    if level_dan(tmp_p['level'])=='C1':
+        game['p_is_celestial'] = True
+
+X = [game for game in X if not game['p_is_celestial']]
+
+for game in reversed(X):
     players_sorted = sorted(game['players'], key=lambda x: x['gradingScore'])
     game['placement'] = 4 - players_sorted.index(next(player for player in players_sorted if player['accountId'] == pid))
     addGradingScoresNorm(game)
@@ -458,7 +462,7 @@ def graph_rank_point_trend(stack):
         #print(norm_last)
         #norm_points = last_place_normalize[modeId2RoomLength[game['modeId']]][normalize_to_rank]/4
         #norm_avg_points = avg_points + norm_points
-        eta = min(base*2-pt,pt)/avg_points
+        eta = 0 if avg_points == 0 else min(base*2-pt,pt)/avg_points
         print(f'{level_dan(pre_level)} Game #{i+1:5d} Len: {i-pre_i+1:4d} {prev_date} {datetime.fromtimestamp(game["startTime"]).strftime("%Y-%m-%d")} {base:4d} {pt:4d} {avg_points:6.2f} {this_last_count} ETA:{eta:6.0f}')
     plt.title(f'Rank Points Trend [{jp2en[モード選択]}] {pname}[{pidx}]', fontsize=20)
     plt.xlabel('Games', fontsize=20); plt.ylabel('Rank Points', fontsize=20)
@@ -482,8 +486,8 @@ blank_graph()
 graph_rank_point_trend(True)
 blank_graph()
 graph_rank_point_trend(False)
-print(X[0])
-last_stats()
+#print(X[0])
+#last_stats()
 
 if cached_data_dirty:
     with open(save_filename, "wb") as fp: pickle.dump(cached_data, fp)
