@@ -12,8 +12,8 @@ const pnameBtn = document.getElementById('pname')
 const xminEl = document.getElementById('xmin')
 const xmaxEl = document.getElementById('xmax')
 let actualXmaxValue
-xminEl.addEventListener('change', ()=>{ Plotly.relayout('Chart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })});
-xmaxEl.addEventListener('change', ()=>{ Plotly.relayout('Chart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })});
+xminEl.addEventListener('change', ()=>{ Plotly.relayout('ESChart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })});
+xmaxEl.addEventListener('change', ()=>{ Plotly.relayout('ESChart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })});
 // xmaxEl.addEventListener('change', ()=>{ stats.vmax = Number(vmaxEl.value); draw(); });
 
 generateBtn.addEventListener('click', ()=>{
@@ -53,6 +53,9 @@ for (const type in last_place_penalty) {
 const d = ['?', 'E', 'M', 'S', '?', 'C'];
 // const p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45};
 const level_dan = level => `${d[Math.floor(level / 100) % 100 - 2]}${level % 100}`;
+const level_pt_base = (level) => {
+    return (Math.floor(level / 100) % 100 >= 6) ? 5000 : p[level % 1000] * 100;
+};
 
 function exponential_moving_average(data, half_life) {
     const alpha = 1 - Math.pow(0.5, 1 / half_life)
@@ -114,8 +117,7 @@ async function main() {
     console.log(games)
     // console.log(games[0])
     
-    let results = []
-    let gradingScoresNorm = []
+    let prevGame = null
     for (let game of games) {
         game.player = game.players.find(p => p.nickname == pname)
         const players_sorted = [...game.players].sort((a, b) => a.gradingScore - b.gradingScore);
@@ -126,13 +128,16 @@ async function main() {
         if (game.player.placement == 4) {
             game.player.gradingScoreNorm += last_place_normalize[modeId2RoomLength[game['modeId']]][level_dan(game.player['level'])]
         }
+        game.player.rankPoints = game.player.gradingScore
+        if (prevGame && prevGame.player.level == game.player.level) {
+            game.player.rankPoints += prevGame.player.rankPoints
+        }
+        prevGame = game
         // console.log(game.player)
-        results.push(game.player.gradingScore)
-        gradingScoresNorm.push(game.player.gradingScoreNorm)
     }
     console.log(games)
 
-    const x = gradingScoresNorm.map((_, i) => i + 1); // x-axis: game numbers
+    const x = games.map((_, i) => i + 1); // x-axis: game numbers
     const windowSizes = [100, 200, 400];
 
     let traces = []
@@ -159,27 +164,12 @@ async function main() {
         }
     }
 
-    // traces.push(...windowSizes.map(window_size => ({
-    //     x: x,
-    //     y: exponential_moving_average(gradingScoresNorm, window_size),
-    //     mode: 'lines',
-    //     name: `EMA ${window_size}`
-    // })));
-    // traces.push(...windowSizes.map(window_size => ({
-    //     x: x,
-    //     y: slidingWindowAverage(gradingScoresNorm, window_size*2),
-    //     mode: 'lines',
-    //     name: `Sliding ${window_size*2}`,
-    //     visible: 'legendonly',
-    // })));
     const yValues = traces.flatMap(trace => trace.y); // combine all y values
     const yMin = Math.min(...yValues);
     const yMax = Math.max(...yValues);
     actualXmaxValue = x.length
 
-    // console.log(traces)
-
-    const layout = {
+    let layout = {
         title: {
             text: `Expected Scores assuming ${NORMALIZE_TO_RANK}`,
         },
@@ -253,6 +243,61 @@ async function main() {
 
         )
     }
-    Plotly.newPlot('Chart', traces, layout, { responsive: true });
+    Plotly.newPlot('ESChart', traces, layout, { responsive: true });
+
+    traces = []
+    traces.push(
+        {
+            x: x,
+            y: games.map(game => game.player.rankPoints),
+            mode: 'lines',
+            name: `rp`,
+        }
+    )
+
+    layout = {
+        title: {
+            text: `Rank Points`,
+        },
+        xaxis: { title: 'Game #' },
+        yaxis: { 
+            title: 'Score',
+            // fixedrange: true,
+            // range: [yMin-5, yMax+5],
+        },
+        legend: {
+            x: 0.5,
+            y: -0.2,
+            xanchor: 'center',
+            yanchor: 'top',
+        },
+        shapes: [
+        ],
+        annotations: [
+        ],
+    }
+    prevGame = null
+    for (let [index, game] of games.entries()) {
+        if (prevGame && prevGame.player.level != game.player.level) {
+            layout.shapes.push(
+                {
+                    type: 'line', 
+                    x0: index, 
+                    x1: index,
+                    y0: 0,
+                    y1: 1,
+                    xref: 'x', 
+                    yref: 'paper',
+                    line: {
+                        color: 'black', 
+                        width: 0.5,
+                        dash: 'solid',
+                    }
+                }
+            )
+        }
+        prevGame = game
+    }
+    Plotly.newPlot('RankPointChart', traces, layout, { responsive: true });
 }
 
