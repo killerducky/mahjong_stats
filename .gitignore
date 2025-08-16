@@ -1,4 +1,5 @@
 *.pickle
+*.json
 *.png
 stats_all.html
 output.txt
