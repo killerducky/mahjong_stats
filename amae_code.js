@@ -100,6 +100,7 @@ class Player {
         this.NORMALIZE_TO_RANK = RANK_LINES[this.normalizeToRankLine]
         this.generateBtn = this.chartContainerEl.querySelector('.generate');
         this.pnameBtn = this.chartContainerEl.querySelector('.pname')
+        this.pnameBtn.value = this.pname
         this.xminEl = this.chartContainerEl.querySelector('.xmin')
         this.xmaxEl = this.chartContainerEl.querySelector('.xmax')
         this.ESChart = this.chartContainerEl.querySelector('.ESChart')
@@ -191,8 +192,9 @@ class Player {
 
         let layout = {
             title: {
-                text: `Expected Scores assuming ${this.NORMALIZE_TO_RANK}`,
+                text: `Expected Scores for ${this.pname} [${this.pidx}] assuming ${this.NORMALIZE_TO_RANK}`,
             },
+            margin: { t: 50, b: 50 },
             xaxis: { title: 'Game #' },
             yaxis: { 
                 title: 'Score',
@@ -201,7 +203,7 @@ class Player {
             },
             legend: {
                 x: 0.5,
-                y: -0.2,
+                y: -0.1,
                 xanchor: 'center',
                 yanchor: 'top',
                 orientation: 'h',
@@ -256,15 +258,16 @@ class Player {
 
         layout = {
             title: {
-                text: `Rank Points`,
+                text: `Rank Points for ${this.pname} [${this.pidx}]`,
             },
+            margin: { t: 50, b: 50 },
             xaxis: { title: 'Game #' },
             yaxis: { 
                 title: 'Score',
             },
             legend: {
                 x: 0.5,
-                y: -0.2,
+                y: -0.1,
                 xanchor: 'center',
                 yanchor: 'top',
             },

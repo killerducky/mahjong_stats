@@ -26,61 +26,63 @@ app.use(express.static(__dirname));
 
 // Example endpoint to fetch player data (avoids CORS issues)
 app.get('/player/:nickname', async (req, res) => {
-  const pname = req.params.nickname;
-  const url = `https://5-data.amae-koromo.com/api/v2/pl4/search_player/${pname}`;
+  try {
+    const pname = req.params.nickname;
+    const url = `https://5-data.amae-koromo.com/api/v2/pl4/search_player/${pname}`;
 
-  let data
-  let games
-  let json_fn = `${JSON_DATA_BASE_FILENAME}_${pname}.json`
-  if (true && fs.existsSync(json_fn)) {
-    const fileContents = await fs.promises.readFile(json_fn, 'utf8')
-    data = JSON.parse(fileContents)
-  } else {
-    data = { pnames : {} }
-  }
-  console.log('server for', pname)
-  if (pname in data.pnames) {
-    games = data.pnames[pname]
-  } else {
-    try {
-          console.log('server fetch', pname)
-          let pidx = 0
-          let res1 = await fetch(url);
-          let data1 = await res1.json();
-          const result = data1[pidx];
-          
-          const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-          games = []
-          let start = result.latest_timestamp
-
-          for (let i=0; i<20; i++) {
-            let s1 = `${s0}player_records/${result.id}/${start}999/1262304000000?limit=500&mode=${mode}&descending=true&tag=`
-            console.log(s1)
-            const res2 = await fetch(s1)
-            const these_games = await res2.json()
-            // console.log(these_games)
-            console.log(these_games.length)
-            await delay(10)
-            const length = these_games.length
-            if (length == 0) {
-                break;
-            }
-            // console.log(these_games[0])
-            // console.log(these_games[these_games.length-1].startTime-1)
-            start = these_games[these_games.length-1].startTime-1
-            games = games.concat(these_games)
-            if (length < 500) {
-                break;
-            }
-          }
-          data.pnames[pname] = games
-          await fs.promises.writeFile(json_fn, JSON.stringify(data, null, 2));
-        } catch (err) {
-            console.log('Error caught')
-            res.status(500).json({ error: err.message });
-        }
+    let data
+    let games
+    let json_fn = `${JSON_DATA_BASE_FILENAME}_${pname}.json`
+    if (true && fs.existsSync(json_fn)) {
+      const fileContents = await fs.promises.readFile(json_fn, 'utf8')
+      data = JSON.parse(fileContents)
+    } else {
+      data = { pnames : {} }
     }
-    res.json(games)
+    if (pname in data.pnames) {
+      games = data.pnames[pname].games
+    } else {
+        console.log('server fetch', pname)
+        let pidx = 0 // TODO handle cases of multiple players with same name
+        let res1 = await fetch(url);
+        let data1 = await res1.json();
+        const result = data1[pidx];
+        data.pnames[pname] = result
+        
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+        games = []
+        let start = result.latest_timestamp
+
+        for (let i=0; i<20; i++) {
+          let s1 = `${s0}player_records/${result.id}/${start}999/1262304000000?limit=500&mode=${mode}&descending=true&tag=`
+          console.log(s1)
+          const res2 = await fetch(s1)
+          const these_games = await res2.json()
+          // console.log(these_games)
+          console.log(these_games.length)
+          await delay(10)
+          const length = these_games.length
+          if (length == 0) {
+              break;
+          }
+          // console.log(these_games[0])
+          // console.log(these_games[these_games.length-1].startTime-1)
+          start = these_games[these_games.length-1].startTime-1
+          games = games.concat(these_games)
+          if (length < 500) {
+              break;
+          }
+        }
+        data.pnames[pname].games = games
+        await fs.promises.writeFile(json_fn, JSON.stringify(data, null, 2));
+      }
+      // console.log(games[0])
+      res.json(games)
+    } catch (err) {
+      console.log('Error caught')
+      console.log(err)
+      res.status(500).json({ error: err.message });
+    }
 });
 
 app.listen(PORT, () => {
