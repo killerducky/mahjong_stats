@@ -1,30 +1,5 @@
 const NUM_PLAYERS = 4 // only 4 supported for now
-
-let pname = ''
-const pid = 120517763 // this should actually come from the first server call!
-const pidx = 0
-const NORMALIZE_TO_RANK_LINE = 3 // S1
 const RANK_LINES = ['M1', 'M2', 'M3', 'S1', 'S2', 'S3']
-const NORMALIZE_TO_RANK = RANK_LINES[NORMALIZE_TO_RANK_LINE]
-
-const generateBtn = document.getElementById('generate');
-const pnameBtn = document.getElementById('pname')
-const xminEl = document.getElementById('xmin')
-const xmaxEl = document.getElementById('xmax')
-let actualXmaxValue
-xminEl.addEventListener('change', relayout);
-xmaxEl.addEventListener('change', relayout);
-
-function relayout() {
-    Plotly.relayout('ESChart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })
-    Plotly.relayout('RankPointChart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })
-}
-
-generateBtn.addEventListener('click', ()=>{
-  pname = pnameBtn.value
-  main();
-});
-
 const s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
 // # 12 = 4p Hanchan Jade room, 9 = 4p Hanchan Gold room
 // # 11 = 4p Tonpuusen Jade room, 8 = 4p Tonpuusent Gold room
@@ -45,15 +20,7 @@ const last_place_penalty = {
     'S': {'E1':-80, 'E2':-100, 'E3':-120, 'M1':-165, 'M2':-180, 'M3':-195, 'S1':-210, 'S2':-225, 'S3':-240},
     'E':  {'E1':-40, 'E2':-50, 'E3':-60, 'M1':-80, 'M2':-90, 'M3':-100, 'S1':-110, 'S2':-120, 'S3':-130}
 }
-const last_place_normalize = {}
-for (const type in last_place_penalty) {
-    // Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
-    last_place_normalize[type] = {};
-    for (const k in last_place_penalty[type]) {
-        last_place_normalize[type][k] = last_place_penalty[type][NORMALIZE_TO_RANK] - last_place_penalty[type][k]
-    }
-}
-// console.log(last_place_normalize)
+
 const d = ['?', 'E', 'M', 'S', '?', 'C'];
 // const p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45};
 const level_dan = level => `${d[Math.floor(level / 100) % 100 - 2]}${level % 100}`;
@@ -67,6 +34,7 @@ for (let level of [10301, 10302, 10303, 10401, 10402, 10403, 10501, 10502, 10503
     level_pt_sum_base[level] = sum
     sum += level_pt_base(level)
 }
+
 
 function exponential_moving_average(data, half_life) {
     const alpha = 1 - Math.pow(0.5, 1 / half_life)
@@ -121,216 +89,256 @@ async function loadPlayerData(nickname) {
     data.reverse()
     return data
 }
-    
-async function main() {
-    let games
-    games = await loadPlayerData(pname)
-    console.log(games)
-    // console.log(games[0])
-    
-    let prevGame = null
-    for (let game of games) {
-        game.player = game.players.find(p => p.nickname == pname)
-        const players_sorted = [...game.players].sort((a, b) => a.gradingScore - b.gradingScore);
-        players_sorted.forEach((player, index) => {
-            player.placement = players_sorted.length - index
-        })
-        game.player.gradingScoreNorm = game.player.gradingScore
-        if (game.player.placement == 4) {
-            game.player.gradingScoreNorm += last_place_normalize[modeId2RoomLength[game['modeId']]][level_dan(game.player['level'])]
-        }
-        if (!prevGame || prevGame.player.level != game.player.level) {
-            game.player.rankPoints = level_pt_sum_base[game.player.level] + game.player.gradingScore
-            // console.log(game.player.rankPoints)
-        } else {
-            game.player.rankPoints = prevGame.player.rankPoints + game.player.gradingScore
-        }
-        prevGame = game
-        // console.log(game.player)
-    }
-    console.log(games)
 
-    const x = games.map((_, i) => i + 1); // x-axis: game numbers
-    const windowSizes = [100, 200, 400];
+class Player {
+    constructor(pname, pidx, uuid) {
+        this.pname = pname
+        this.pidx = pidx
+        this.uuid = uuid
+        this.normalizeToRankLine = 3
+        this.NORMALIZE_TO_RANK = RANK_LINES[this.normalizeToRankLine]
+        this.generateBtn = document.getElementById('generate');
+        this.pnameBtn = document.getElementById('pname')
+        this.xminEl = document.getElementById('xmin')
+        this.xmaxEl = document.getElementById('xmax')
+        this.chartContainerEl = document.querySelector('.chart-container')
+        this.ESChart = this.chartContainerEl.querySelector('.ESChart')
+        this.RankPointChart = this.chartContainerEl.querySelector('.RankPointChart')
+        this.actualXmaxValue
+        this.xminEl.addEventListener('change', this.relayout);
+        this.xmaxEl.addEventListener('change', this.relayout);
 
-    let traces = []
-
-    for (let [lambdaStr, lambdaFunc] of [["EMA", exponential_moving_average], ["Sliding", slidingWindowAverage]]) {
-        for (const [key, value] of Object.entries(modeId2RoomTypeFull)) {
-            let numMatch = games.filter(game => game.modeId == key).length
-            let attr = games.map(game => game.modeId == key ? game.player.gradingScoreNorm : null)
-            if (numMatch/games.length < 0.05) {
-                continue
-            }
-            for (let windowSize of windowSizes) {
-                let ema = calcMovingAverage(attr, windowSize, lambdaFunc)
-                traces.push(
-                    {
-                        x: x,
-                        y: ema,
-                        mode: 'lines',
-                        name: `${value} ${lambdaStr} ${windowSize}`,
-                        visible: lambdaStr == "Sliding" ? "legendonly" : true,
-                    }
-                )
+        this.last_place_normalize = {}
+        for (const type in last_place_penalty) {
+            // Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
+            this.last_place_normalize[type] = {};
+            for (const k in last_place_penalty[type]) {
+                this.last_place_normalize[type][k] = last_place_penalty[type][this.NORMALIZE_TO_RANK] - last_place_penalty[type][k]
             }
         }
+
+        this.generateBtn.addEventListener('click', ()=>{
+            pname = this.pnameBtn.value
+            this.main();
+        });
     }
+    relayout() {
+        Plotly.relayout(this.ESChart, { 'xaxis.range': [this.xminEl.value, Math.min(this.xmaxEl.value, this.actualXmaxValue)] })
+        Plotly.relayout(this.RankPointChart, { 'xaxis.range': [this.xminEl.value, Math.min(this.xmaxEl.value, this.actualXmaxValue)] })
+    }
+        
+    async main() {
+        let games
+        games = await loadPlayerData(this.pname)
+        console.log(games)
+        // console.log(games[0])
+        
+        let prevGame = null
+        for (let game of games) {
+            game.player = game.players.find(p => p.nickname == this.pname)
+            const players_sorted = [...game.players].sort((a, b) => a.gradingScore - b.gradingScore);
+            players_sorted.forEach((player, index) => {
+                player.placement = players_sorted.length - index
+            })
+            game.player.gradingScoreNorm = game.player.gradingScore
+            if (game.player.placement == 4) {
+                game.player.gradingScoreNorm += this.last_place_normalize[modeId2RoomLength[game['modeId']]][level_dan(game.player['level'])]
+            }
+            if (!prevGame || prevGame.player.level != game.player.level) {
+                game.player.rankPoints = level_pt_sum_base[game.player.level] + game.player.gradingScore
+                // console.log(game.player.rankPoints)
+            } else {
+                game.player.rankPoints = prevGame.player.rankPoints + game.player.gradingScore
+            }
+            prevGame = game
+            // console.log(game.player)
+        }
+        console.log(games)
 
-    const yValues = traces.flatMap(trace => trace.y); // combine all y values
-    const yMin = Math.min(...yValues);
-    const yMax = Math.max(...yValues);
-    actualXmaxValue = x.length
+        const x = games.map((_, i) => i + 1); // x-axis: game numbers
+        this.actualXmaxValue = x.length
+        const windowSizes = [100, 200, 400];
 
-    let layout = {
-        title: {
-            text: `Expected Scores assuming ${NORMALIZE_TO_RANK}`,
-        },
-        xaxis: { title: 'Game #' },
-        yaxis: { 
-            title: 'Score',
-            // fixedrange: true,
-            // range: [yMin-5, yMax+5],
-        },
-        legend: {
-            x: 0.5,
-            y: -0.2,
-            xanchor: 'center',
-            yanchor: 'top',
-        },
-        shapes: [
-        ],
-        annotations: [
-        ],
-    };
-    for (let line=0; line<6; line++) {
-        layout.shapes.push({
-                type: 'line', 
-                x0: 0, 
-                x1: 1,
-                y0: (line-NORMALIZE_TO_RANK_LINE)*15.0/4.0,
-                y1: (line-NORMALIZE_TO_RANK_LINE)*15.0/4.0,
-                xref: 'paper', 
-                yref: 'y',
-                line: {
-                    color: 'blue', 
-                    width: 0.5,
-                    dash: 'solid',
+        let traces = []
+
+        for (let [lambdaStr, lambdaFunc] of [["EMA", exponential_moving_average], ["Sliding", slidingWindowAverage]]) {
+            for (const [key, value] of Object.entries(modeId2RoomTypeFull)) {
+                let numMatch = games.filter(game => game.modeId == key).length
+                let attr = games.map(game => game.modeId == key ? game.player.gradingScoreNorm : null)
+                if (numMatch/games.length < 0.05) {
+                    continue
                 }
+                for (let windowSize of windowSizes) {
+                    let ema = calcMovingAverage(attr, windowSize, lambdaFunc)
+                    traces.push(
+                        {
+                            x: x,
+                            y: ema,
+                            mode: 'lines',
+                            name: `${value} ${lambdaStr} ${windowSize}`,
+                            visible: lambdaStr == "Sliding" ? "legendonly" : true,
+                        }
+                    )
+                }
+            }
+        }
 
+        // const yValues = traces.flatMap(trace => trace.y); // combine all y values
+        // const yMin = Math.min(...yValues);
+        // const yMax = Math.max(...yValues);
+        this.actualXmaxValue = x.length
+
+        let layout = {
+            title: {
+                text: `Expected Scores assuming ${this.NORMALIZE_TO_RANK}`,
+            },
+            xaxis: { title: 'Game #' },
+            yaxis: { 
+                title: 'Score',
+                // fixedrange: true,
+                // range: [yMin-5, yMax+5],
+            },
+            legend: {
+                x: 0.5,
+                y: -0.2,
+                xanchor: 'center',
+                yanchor: 'top',
+            },
+            shapes: [
+            ],
+            annotations: [
+            ],
+        };
+        for (let line=0; line<6; line++) {
+            layout.shapes.push({
+                    type: 'line', 
+                    x0: 0, 
+                    x1: 1,
+                    y0: (line-this.normalizeToRankLine)*15.0/4.0,
+                    y1: (line-this.normalizeToRankLine)*15.0/4.0,
+                    xref: 'paper', 
+                    yref: 'y',
+                    line: {
+                        color: 'blue', 
+                        width: 0.5,
+                        dash: 'solid',
+                    }
+
+                }
+            )
+            layout.annotations.push({
+                    x: 0,
+                    y: (line-this.normalizeToRankLine)*15.0/4.0+1,
+                    xref: 'paper',
+                    yref: 'y',
+                    text: RANK_LINES[line],
+                    showarrow: false,
+                    xanchor: screenLeft,
+                    font: {
+                        color: 'blue',
+                        size: 12,
+                    }
+                }
+            )
+        }
+        Plotly.newPlot(this.ESChart, traces, layout, { responsive: true });
+
+        traces = []
+        traces.push({
+                x: x,
+                y: games.map(game => game.player.rankPoints),
+                mode: 'lines',
+                name: `rp`,
             }
         )
-        layout.annotations.push({
-                x: 0,
-                y: (line-NORMALIZE_TO_RANK_LINE)*15.0/4.0+1,
+
+        layout = {
+            title: {
+                text: `Rank Points`,
+            },
+            xaxis: { title: 'Game #' },
+            yaxis: { 
+                title: 'Score',
+            },
+            legend: {
+                x: 0.5,
+                y: -0.2,
+                xanchor: 'center',
+                yanchor: 'top',
+            },
+            shapes: [
+            ],
+            annotations: [
+            ],
+        }
+        prevGame = null
+        let prevChange = 0
+        for (let [index, game] of games.entries()) {
+            if (prevGame && prevGame.player.level != game.player.level || index == games.length-1) {
+                // console.log("level=", game.player.level, level_dan(game.player.level))
+                for (let x of [prevChange, index]) {
+                    layout.shapes.push({
+                            type: 'line', 
+                            x0: x, 
+                            x1: x,
+                            y0: level_pt_sum_base[prevGame.player.level] - level_pt_base(prevGame.player.level),
+                            y1: level_pt_sum_base[prevGame.player.level] + level_pt_base(prevGame.player.level),
+                            xref: 'x', 
+                            yref: 'y',
+                            line: {
+                                color: 'black', 
+                                width: 0.5,
+                                dash: 'solid',
+                            }
+                        }
+                    )
+                }
+                layout.annotations.push({
+                    x: prevChange,
+                    y: level_pt_sum_base[prevGame.player.level] - level_pt_base(prevGame.player.level),
+                    text: level_dan(prevGame.player.level),
+                    showarrow: false,
+                    xanchor: 'left',
+                    yanchor: 'bottom',
+                    font: { size:10, color: 'black'},
+                })
+                for (let y of [-1, 0, 1]) {
+                    layout.shapes.push({
+                            type: 'line',
+                            x0: prevChange,
+                            x1: index,
+                            y0: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
+                            y1: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
+                            xref: 'x',
+                            yref: 'y',
+                                                line: {
+                                color: 'black', 
+                                width: 0.5,
+                                dash: 'solid',
+                            }
+                        }
+                    )
+                }
+                prevChange = index
+            }
+            prevGame = game
+        }
+        for (let y of [-1, 0, 1]) {
+            layout.annotations.push({
+                x: 1.01,
+                y: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
                 xref: 'paper',
                 yref: 'y',
-                text: RANK_LINES[line],
-                showarrow: false,
-                xanchor: screenLeft,
-                font: {
-                    color: 'blue',
-                    size: 12,
-                }
-            }
-        )
-    }
-    Plotly.newPlot('ESChart', traces, layout, { responsive: true });
-
-    traces = []
-    traces.push({
-            x: x,
-            y: games.map(game => game.player.rankPoints),
-            mode: 'lines',
-            name: `rp`,
-        }
-    )
-
-    layout = {
-        title: {
-            text: `Rank Points`,
-        },
-        xaxis: { title: 'Game #' },
-        yaxis: { 
-            title: 'Score',
-        },
-        legend: {
-            x: 0.5,
-            y: -0.2,
-            xanchor: 'center',
-            yanchor: 'top',
-        },
-        shapes: [
-        ],
-        annotations: [
-        ],
-    }
-    prevGame = null
-    let prevChange = 0
-    for (let [index, game] of games.entries()) {
-        if (prevGame && prevGame.player.level != game.player.level || index == games.length-1) {
-            // console.log("level=", game.player.level, level_dan(game.player.level))
-            for (let x of [prevChange, index]) {
-                layout.shapes.push({
-                        type: 'line', 
-                        x0: x, 
-                        x1: x,
-                        y0: level_pt_sum_base[prevGame.player.level] - level_pt_base(prevGame.player.level),
-                        y1: level_pt_sum_base[prevGame.player.level] + level_pt_base(prevGame.player.level),
-                        xref: 'x', 
-                        yref: 'y',
-                        line: {
-                            color: 'black', 
-                            width: 0.5,
-                            dash: 'solid',
-                        }
-                    }
-                )
-            }
-            layout.annotations.push({
-                x: prevChange,
-                y: level_pt_sum_base[prevGame.player.level] - level_pt_base(prevGame.player.level),
-                text: level_dan(prevGame.player.level),
-                showarrow: false,
                 xanchor: 'left',
-                yanchor: 'bottom',
-                font: { size:10, color: 'black'},
+                text: ((y+1)*level_pt_base(prevGame.player.level)).toString(),
+                showarrow: false,
+                font: { size:12, color: 'black'},
+                align: 'left',
             })
-            for (let y of [-1, 0, 1]) {
-                layout.shapes.push({
-                        type: 'line',
-                        x0: prevChange,
-                        x1: index,
-                        y0: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
-                        y1: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
-                        xref: 'x',
-                        yref: 'y',
-                                            line: {
-                            color: 'black', 
-                            width: 0.5,
-                            dash: 'solid',
-                        }
-                    }
-                )
-            }
-            prevChange = index
         }
-        prevGame = game
-    }
-    for (let y of [-1, 0, 1]) {
-        layout.annotations.push({
-            x: 1.01,
-            y: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
-            xref: 'paper',
-            yref: 'y',
-            xanchor: 'left',
-            text: ((y+1)*level_pt_base(prevGame.player.level)).toString(),
-            showarrow: false,
-            font: { size:12, color: 'black'},
-            align: 'left',
-        })
-    }
 
-    Plotly.newPlot('RankPointChart', traces, layout, { responsive: true });
+        Plotly.newPlot(this.RankPointChart, traces, layout, { responsive: true });
+    }
 }
 
+const playerObj = new Player("KillerDucky", 0, 120517763)
