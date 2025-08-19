@@ -25,9 +25,10 @@ app.get('/', (req, res) => {
 app.use(express.static(__dirname));
 
 // Example endpoint to fetch player data (avoids CORS issues)
-app.get('/player/:nickname', async (req, res) => {
+app.get('/player/:nickname/:pidx', async (req, res) => {
   try {
-    const pname = req.params.nickname;
+    const pname = req.params.nickname
+    const pidx = req.params.pidx
     const url = `https://5-data.amae-koromo.com/api/v2/pl4/search_player/${pname}`;
 
     let data
@@ -43,7 +44,6 @@ app.get('/player/:nickname', async (req, res) => {
       games = data.pnames[pname].games
     } else {
         console.log('server fetch', pname)
-        let pidx = 0 // TODO handle cases of multiple players with same name
         let res1 = await fetch(url);
         let data1 = await res1.json();
         const result = data1[pidx];
@@ -77,7 +77,7 @@ app.get('/player/:nickname', async (req, res) => {
         await fs.promises.writeFile(json_fn, JSON.stringify(data, null, 2));
       }
       // console.log(games[0])
-      res.json(games)
+      res.json(data.pnames[pname])
     } catch (err) {
       console.log('Error caught')
       console.log(err)

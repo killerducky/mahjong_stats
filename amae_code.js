@@ -22,7 +22,7 @@ const last_place_penalty = {
 }
 
 const d = ['?', 'E', 'M', 'S', '?', 'C'];
-// const p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45};
+const C1_LEVEL = 10701 // TODO just make forward/reverse maps instead of all this math?
 const level_dan = level => `${d[Math.floor(level / 100) % 100 - 2]}${level % 100}`;
 const level_pt_base = (level) => {
     let p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
@@ -82,32 +82,30 @@ function calcMovingAverage(data, windowSize, lambdaAvg) {
     return finalResult
 }
 
-async function loadPlayerData(nickname) {
+async function loadPlayerData(nickname, pidx) {
     let res, data
-    res = await fetch(`/player/${nickname}`)
+    res = await fetch(`/player/${nickname}/${pidx}`)
     data = await res.json()
-    data.reverse()
+    data.games.reverse() // TODO Where should this really be done?
     return data
 }
 
 class Player {
-    constructor(chartContainerEl, pname, pidx, uuid) {
+    constructor(chartContainerEl, pname, pidx) {
         this.chartContainerEl = chartContainerEl
         this.pname = pname
         this.pidx = pidx
-        this.uuid = uuid
+        // this.uuid = uuid
         this.normalizeToRankLine = 3
         this.NORMALIZE_TO_RANK = RANK_LINES[this.normalizeToRankLine]
         this.generateBtn = this.chartContainerEl.querySelector('.generate');
         this.pnameBtn = this.chartContainerEl.querySelector('.pname')
         this.pnameBtn.value = this.pname
         this.xminEl = this.chartContainerEl.querySelector('.xmin')
-        this.xmaxEl = this.chartContainerEl.querySelector('.xmax')
         this.ESChart = this.chartContainerEl.querySelector('.ESChart')
         this.RankPointChart = this.chartContainerEl.querySelector('.RankPointChart')
         this.actualXmaxValue
         this.xminEl.addEventListener('change', () => this.relayout());
-        this.xmaxEl.addEventListener('change', () => this.relayout());
 
         this.last_place_normalize = {}
         for (const type in last_place_penalty) {
@@ -124,13 +122,15 @@ class Player {
         });
     }
     relayout() {
-        Plotly.relayout(this.ESChart, { 'xaxis.range': [this.xminEl.value, Math.min(this.xmaxEl.value, this.actualXmaxValue)] })
-        Plotly.relayout(this.RankPointChart, { 'xaxis.range': [this.xminEl.value, Math.min(this.xmaxEl.value, this.actualXmaxValue)] })
+        Plotly.relayout(this.ESChart, { 'xaxis.range': [Math.max(0, this.actualXmaxValue - this.xminEl.value), this.actualXmaxValue] })
+        Plotly.relayout(this.RankPointChart, { 'xaxis.range': [Math.max(0, this.actualXmaxValue - this.xminEl.value), this.actualXmaxValue] })
     }
         
     async generate() {
         let games
-        games = await loadPlayerData(this.pname)
+        let data = await loadPlayerData(this.pname, this.pidx)
+        this.uuid = data.id
+        games = data.games
         console.log(this.pname)
         console.log(games)
         // console.log(games[0])
@@ -155,8 +155,7 @@ class Player {
             prevGame = game
             // console.log(game.player)
         }
-        // console.log(games)
-
+        games = games.filter(game => game.player.level < C1_LEVEL)
         const x = games.map((_, i) => i + 1); // x-axis: game numbers
         this.actualXmaxValue = x.length
         const windowSizes = [100, 200, 400];
@@ -178,7 +177,8 @@ class Player {
                             y: ema,
                             mode: 'lines',
                             name: `${value} ${lambdaStr} ${windowSize}`,
-                            visible: lambdaStr == "Sliding" ? "legendonly" : true,
+                            visible: lambdaStr == "Sliding" ? false : true,
+                            // visible: lambdaStr == "Sliding" ? "legendonly" : true,
                         }
                     )
                 }
@@ -194,7 +194,7 @@ class Player {
             title: {
                 text: `Expected Scores for ${this.pname} [${this.pidx}] assuming ${this.NORMALIZE_TO_RANK}`,
             },
-            margin: { t: 50, b: 50 },
+            margin: { t: 50, b: 50, l: 50, r: 50 },
             xaxis: { title: 'Game #' },
             yaxis: { 
                 title: 'Score',
@@ -260,7 +260,7 @@ class Player {
             title: {
                 text: `Rank Points for ${this.pname} [${this.pidx}]`,
             },
-            margin: { t: 50, b: 50 },
+            margin: { t: 50, b: 50, l: 50, r: 50 },
             xaxis: { title: 'Game #' },
             yaxis: { 
                 title: 'Score',
@@ -343,16 +343,29 @@ class Player {
         }
 
         Plotly.newPlot(this.RankPointChart, traces, layout, { responsive: true });
+        this.relayout()
     }
 }
 
 async function main() {
-    let chart = [document.querySelector('.chart-container')]
-    let clone = chart[0].cloneNode(true)
-    chart.push(clone)
-    document.body.appendChild(clone)
-    new Player(chart[0], "KillerDucky", 0, 120517763)
-    new Player(chart[1], "StickThief", 0, 117561897)
+    let players = [
+        ["KillerDucky", 0],
+        ["StickThief", 0],
+        ["mort", 2],
+        ["navitas", 1],
+    ]
+    let charts = []
+    for (let p of players) {
+        let chart
+        if (charts.length == 0) {
+            chart = document.querySelector('.chart-container')
+        } else {
+            chart = charts[0].cloneNode(true)
+            document.body.appendChild(chart)
+        }
+        charts.push(chart)
+        new Player(chart, p[0], p[1])
+    }
 }
 
 main()
