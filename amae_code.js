@@ -12,9 +12,13 @@ const pnameBtn = document.getElementById('pname')
 const xminEl = document.getElementById('xmin')
 const xmaxEl = document.getElementById('xmax')
 let actualXmaxValue
-xminEl.addEventListener('change', ()=>{ Plotly.relayout('ESChart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })});
-xmaxEl.addEventListener('change', ()=>{ Plotly.relayout('ESChart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })});
-// xmaxEl.addEventListener('change', ()=>{ stats.vmax = Number(vmaxEl.value); draw(); });
+xminEl.addEventListener('change', relayout);
+xmaxEl.addEventListener('change', relayout);
+
+function relayout() {
+    Plotly.relayout('ESChart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })
+    Plotly.relayout('RankPointChart', { 'xaxis.range': [xminEl.value, Math.min(xmaxEl.value, actualXmaxValue)] })
+}
 
 generateBtn.addEventListener('click', ()=>{
   pname = pnameBtn.value
@@ -58,10 +62,10 @@ const level_pt_base = (level) => {
     return (Math.floor(level / 100) % 100 >= 6) ? 5000 : p[level % 1000] * 100;
 };
 let level_pt_sum_base = {}
-let sum = 0
+let sum = level_pt_base(10301)
 for (let level of [10301, 10302, 10303, 10401, 10402, 10403, 10501, 10502, 10503]) {
-    sum += level_pt_base(level)
     level_pt_sum_base[level] = sum
+    sum += level_pt_base(level)
 }
 
 function exponential_moving_average(data, half_life) {
@@ -137,7 +141,7 @@ async function main() {
         }
         if (!prevGame || prevGame.player.level != game.player.level) {
             game.player.rankPoints = level_pt_sum_base[game.player.level] + game.player.gradingScore
-            console.log(game.player.rankPoints)
+            // console.log(game.player.rankPoints)
         } else {
             game.player.rankPoints = prevGame.player.rankPoints + game.player.gradingScore
         }
@@ -200,8 +204,7 @@ async function main() {
         ],
     };
     for (let line=0; line<6; line++) {
-        layout.shapes.push(
-            {
+        layout.shapes.push({
                 type: 'line', 
                 x0: 0, 
                 x1: 1,
@@ -217,8 +220,7 @@ async function main() {
 
             }
         )
-        layout.annotations.push(
-            {
+        layout.annotations.push({
                 x: 0,
                 y: (line-NORMALIZE_TO_RANK_LINE)*15.0/4.0+1,
                 xref: 'paper',
@@ -231,14 +233,12 @@ async function main() {
                     size: 12,
                 }
             }
-
         )
     }
     Plotly.newPlot('ESChart', traces, layout, { responsive: true });
 
     traces = []
-    traces.push(
-        {
+    traces.push({
             x: x,
             y: games.map(game => game.player.rankPoints),
             mode: 'lines',
@@ -253,8 +253,6 @@ async function main() {
         xaxis: { title: 'Game #' },
         yaxis: { 
             title: 'Score',
-            // fixedrange: true,
-            // range: [yMin-5, yMax+5],
         },
         legend: {
             x: 0.5,
@@ -271,10 +269,9 @@ async function main() {
     let prevChange = 0
     for (let [index, game] of games.entries()) {
         if (prevGame && prevGame.player.level != game.player.level || index == games.length-1) {
-            console.log("level=", game.player.level, level_dan(game.player.level))
+            // console.log("level=", game.player.level, level_dan(game.player.level))
             for (let x of [prevChange, index]) {
-                layout.shapes.push(
-                    {
+                layout.shapes.push({
                         type: 'line', 
                         x0: x, 
                         x1: x,
@@ -290,9 +287,17 @@ async function main() {
                     }
                 )
             }
+            layout.annotations.push({
+                x: prevChange,
+                y: level_pt_sum_base[prevGame.player.level] - level_pt_base(prevGame.player.level),
+                text: level_dan(prevGame.player.level),
+                showarrow: false,
+                xanchor: 'left',
+                yanchor: 'bottom',
+                font: { size:10, color: 'black'},
+            })
             for (let y of [-1, 0, 1]) {
-                layout.shapes.push(
-                    {
+                layout.shapes.push({
                         type: 'line',
                         x0: prevChange,
                         x1: index,
@@ -312,6 +317,20 @@ async function main() {
         }
         prevGame = game
     }
+    for (let y of [-1, 0, 1]) {
+        layout.annotations.push({
+            x: 1.01,
+            y: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
+            xref: 'paper',
+            yref: 'y',
+            xanchor: 'left',
+            text: ((y+1)*level_pt_base(prevGame.player.level)).toString(),
+            showarrow: false,
+            font: { size:12, color: 'black'},
+            align: 'left',
+        })
+    }
+
     Plotly.newPlot('RankPointChart', traces, layout, { responsive: true });
 }
 
