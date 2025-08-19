@@ -91,22 +91,22 @@ async function loadPlayerData(nickname) {
 }
 
 class Player {
-    constructor(pname, pidx, uuid) {
+    constructor(chartContainerEl, pname, pidx, uuid) {
+        this.chartContainerEl = chartContainerEl
         this.pname = pname
         this.pidx = pidx
         this.uuid = uuid
         this.normalizeToRankLine = 3
         this.NORMALIZE_TO_RANK = RANK_LINES[this.normalizeToRankLine]
-        this.generateBtn = document.getElementById('generate');
-        this.pnameBtn = document.getElementById('pname')
-        this.xminEl = document.getElementById('xmin')
-        this.xmaxEl = document.getElementById('xmax')
-        this.chartContainerEl = document.querySelector('.chart-container')
+        this.generateBtn = this.chartContainerEl.querySelector('.generate');
+        this.pnameBtn = this.chartContainerEl.querySelector('.pname')
+        this.xminEl = this.chartContainerEl.querySelector('.xmin')
+        this.xmaxEl = this.chartContainerEl.querySelector('.xmax')
         this.ESChart = this.chartContainerEl.querySelector('.ESChart')
         this.RankPointChart = this.chartContainerEl.querySelector('.RankPointChart')
         this.actualXmaxValue
-        this.xminEl.addEventListener('change', this.relayout);
-        this.xmaxEl.addEventListener('change', this.relayout);
+        this.xminEl.addEventListener('change', () => this.relayout());
+        this.xmaxEl.addEventListener('change', () => this.relayout());
 
         this.last_place_normalize = {}
         for (const type in last_place_penalty) {
@@ -119,7 +119,7 @@ class Player {
 
         this.generateBtn.addEventListener('click', ()=>{
             pname = this.pnameBtn.value
-            this.main();
+            this.generate();
         });
     }
     relayout() {
@@ -127,15 +127,16 @@ class Player {
         Plotly.relayout(this.RankPointChart, { 'xaxis.range': [this.xminEl.value, Math.min(this.xmaxEl.value, this.actualXmaxValue)] })
     }
         
-    async main() {
+    async generate() {
         let games
         games = await loadPlayerData(this.pname)
+        console.log(this.pname)
         console.log(games)
         // console.log(games[0])
         
         let prevGame = null
         for (let game of games) {
-            game.player = game.players.find(p => p.nickname == this.pname)
+            game.player = game.players.find(p => p.accountId == this.uuid)
             const players_sorted = [...game.players].sort((a, b) => a.gradingScore - b.gradingScore);
             players_sorted.forEach((player, index) => {
                 player.placement = players_sorted.length - index
@@ -153,7 +154,7 @@ class Player {
             prevGame = game
             // console.log(game.player)
         }
-        console.log(games)
+        // console.log(games)
 
         const x = games.map((_, i) => i + 1); // x-axis: game numbers
         this.actualXmaxValue = x.length
@@ -203,6 +204,7 @@ class Player {
                 y: -0.2,
                 xanchor: 'center',
                 yanchor: 'top',
+                orientation: 'h',
             },
             shapes: [
             ],
@@ -341,4 +343,13 @@ class Player {
     }
 }
 
-const playerObj = new Player("KillerDucky", 0, 120517763)
+async function main() {
+    let chart = [document.querySelector('.chart-container')]
+    let clone = chart[0].cloneNode(true)
+    chart.push(clone)
+    document.body.appendChild(clone)
+    new Player(chart[0], "KillerDucky", 0, 120517763)
+    new Player(chart[1], "StickThief", 0, 117561897)
+}
+
+main()

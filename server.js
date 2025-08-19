@@ -7,7 +7,7 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const JSON_DATA_FILENAME = 'amae_data.json'
+const JSON_DATA_BASE_FILENAME = 'json_db/amae_data'
 const app = express();
 const PORT = 3000;
 const s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
@@ -29,12 +29,21 @@ app.get('/player/:nickname', async (req, res) => {
   const pname = req.params.nickname;
   const url = `https://5-data.amae-koromo.com/api/v2/pl4/search_player/${pname}`;
 
+  let data
   let games
-  if (true && fs.existsSync(JSON_DATA_FILENAME)) {
-    const fileContents = await fs.promises.readFile(JSON_DATA_FILENAME, 'utf8')
-    games = JSON.parse(fileContents)
+  let json_fn = `${JSON_DATA_BASE_FILENAME}_${pname}.json`
+  if (true && fs.existsSync(json_fn)) {
+    const fileContents = await fs.promises.readFile(json_fn, 'utf8')
+    data = JSON.parse(fileContents)
   } else {
-      try {
+    data = { pnames : {} }
+  }
+  console.log('server for', pname)
+  if (pname in data.pnames) {
+    games = data.pnames[pname]
+  } else {
+    try {
+          console.log('server fetch', pname)
           let pidx = 0
           let res1 = await fetch(url);
           let data1 = await res1.json();
@@ -64,7 +73,8 @@ app.get('/player/:nickname', async (req, res) => {
                 break;
             }
           }
-          await fs.promises.writeFile(JSON_DATA_FILENAME, JSON.stringify(games, null, 2));
+          data.pnames[pname] = games
+          await fs.promises.writeFile(json_fn, JSON.stringify(data, null, 2));
         } catch (err) {
             console.log('Error caught')
             res.status(500).json({ error: err.message });
