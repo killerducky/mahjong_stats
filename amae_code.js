@@ -1,3 +1,4 @@
+const EXPECTED_SCORE_DISPLAY_FLOOR = -30
 const NUM_PLAYERS = 4 // only 4 supported for now
 const RANK_LINES = ['M1', 'M2', 'M3', 'S1', 'S2', 'S3']
 const s0 = 'https://5-data.amae-koromo.com/api/v2/pl4/'
@@ -35,6 +36,23 @@ for (let level of [10301, 10302, 10303, 10401, 10402, 10403, 10501, 10502, 10503
     sum += level_pt_base(level)
 }
 
+function min(A) {
+    let min = A.reduce((min, val) => {
+        // console.log(min, val)
+        if (val == null) return min
+        if (Number.isNaN(val)) return min
+        return Math.min(min, val)
+    }, Infinity)
+    return min
+}
+function max(A) {
+    let max = A.reduce((max, val) => {
+        if (val == null) return max
+        if (Number.isNaN(val)) return max
+        return Math.max(max, val)
+    }, -Infinity)
+    return max
+}
 
 function exponential_moving_average(data, half_life) {
     const alpha = 1 - Math.pow(0.5, 1 / half_life)
@@ -122,8 +140,20 @@ class Player {
         });
     }
     relayout() {
-        Plotly.relayout(this.ESChart, { 'xaxis.range': [Math.max(0, this.actualXmaxValue - this.xminEl.value), this.actualXmaxValue] })
-        Plotly.relayout(this.RankPointChart, { 'xaxis.range': [Math.max(0, this.actualXmaxValue - this.xminEl.value), this.actualXmaxValue] })
+        let xMin = Math.max(0, this.actualXmaxValue - this.xminEl.value)
+        let ySlice = this.ESChart.data.map(trace => 
+            trace.y.slice(xMin, this.actualXmaxValue)).flat()
+        let yMin = min(ySlice)
+        let yMax = max(ySlice)
+        Plotly.relayout(this.ESChart, {
+            'xaxis.range': [xMin, this.actualXmaxValue],
+            'yaxis.range': [Math.max(EXPECTED_SCORE_DISPLAY_FLOOR, yMin), yMax]
+            // 'yaxis.range': null,
+            // 'yaxis.autorange': true  // TODO this isn't working...
+        })
+        Plotly.relayout(this.RankPointChart, { 
+            'xaxis.range': [xMin, this.actualXmaxValue],
+        })
     }
         
     async generate() {
@@ -131,8 +161,8 @@ class Player {
         let data = await loadPlayerData(this.pname, this.pidx)
         this.uuid = data.id
         games = data.games
-        console.log(this.pname)
-        console.log(games)
+        // console.log(this.pname)
+        // console.log(games)
         // console.log(games[0])
         
         let prevGame = null
@@ -162,7 +192,8 @@ class Player {
 
         let traces = []
 
-        for (let [lambdaStr, lambdaFunc] of [["EMA", exponential_moving_average], ["Sliding", slidingWindowAverage]]) {
+        // for (let [lambdaStr, lambdaFunc] of [["EMA", exponential_moving_average], ["Sliding", slidingWindowAverage]]) {
+        for (let [lambdaStr, lambdaFunc] of [["EMA", exponential_moving_average]]) {
             for (const [key, value] of Object.entries(modeId2RoomTypeFull)) {
                 let numMatch = games.filter(game => game.modeId == key).length
                 let attr = games.map(game => game.modeId == key ? game.player.gradingScoreNorm : null)
@@ -177,8 +208,8 @@ class Player {
                             y: ema,
                             mode: 'lines',
                             name: `${value} ${lambdaStr} ${windowSize}`,
-                            visible: lambdaStr == "Sliding" ? false : true,
-                            // visible: lambdaStr == "Sliding" ? "legendonly" : true,
+                            // visible: lambdaStr == "Sliding" ? false : true,
+                            visible: lambdaStr == "Sliding" ? "legendonly" : true,
                         }
                     )
                 }
@@ -195,9 +226,15 @@ class Player {
                 text: `Expected Scores for ${this.pname} [${this.pidx}] assuming ${this.NORMALIZE_TO_RANK}`,
             },
             margin: { t: 50, b: 50, l: 50, r: 50 },
-            xaxis: { title: 'Game #' },
+            xaxis: { 
+                title: 'Game #',
+                linecolor: 'black',
+                mirror: true,
+            },
             yaxis: { 
                 title: 'Score',
+                linecolor: 'black',
+                mirror: true,
                 // fixedrange: true,
                 // range: [yMin-5, yMax+5],
             },
@@ -261,9 +298,15 @@ class Player {
                 text: `Rank Points for ${this.pname} [${this.pidx}]`,
             },
             margin: { t: 50, b: 50, l: 50, r: 50 },
-            xaxis: { title: 'Game #' },
+            xaxis: { 
+                title: 'Game #' ,
+                linecolor: 'black',
+                mirror: true,
+            },
             yaxis: { 
                 title: 'Score',
+                linecolor: 'black',
+                mirror: true,
             },
             legend: {
                 x: 0.5,
