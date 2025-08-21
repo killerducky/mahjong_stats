@@ -119,6 +119,8 @@ class Player {
         this.generateBtn = this.chartContainerEl.querySelector('.generate');
         this.pnameBtn = this.chartContainerEl.querySelector('.pname')
         this.pnameBtn.value = this.pname
+        this.pidxBtn = this.chartContainerEl.querySelector('.pidx')
+        this.pidxBtn.value = this.pidx
         this.xminEl = this.chartContainerEl.querySelector('.xmin')
         this.ESChart = this.chartContainerEl.querySelector('.ESChart')
         this.RankPointChart = this.chartContainerEl.querySelector('.RankPointChart')
@@ -135,7 +137,8 @@ class Player {
         }
 
         this.generateBtn.addEventListener('click', ()=>{
-            pname = this.pnameBtn.value
+            this.pname = this.pnameBtn.value
+            this.pidx = this.pidxBtn.value
             this.generate();
         });
     }
@@ -147,7 +150,8 @@ class Player {
         let yMax = max(ySlice)
         Plotly.relayout(this.ESChart, {
             'xaxis.range': [xMin, this.actualXmaxValue],
-            'yaxis.range': [Math.max(EXPECTED_SCORE_DISPLAY_FLOOR, yMin), yMax]
+            'yaxis.range': [Math.min((0-this.normalizeToRankLine)*15.0/4.0 -2, 
+                Math.max(EXPECTED_SCORE_DISPLAY_FLOOR, yMin)), Math.max(yMax, (5-this.normalizeToRankLine)*15.0/4.0 + 2)]
             // 'yaxis.range': null,
             // 'yaxis.autorange': true  // TODO this isn't working...
         })
@@ -223,7 +227,7 @@ class Player {
 
         let layout = {
             title: {
-                text: `Expected Scores for ${this.pname} [${this.pidx}] assuming ${this.NORMALIZE_TO_RANK}`,
+                text: `Expected Scores for ${this.pname}[${this.pidx}] assuming ${this.NORMALIZE_TO_RANK}`,
             },
             margin: { t: 50, b: 50, l: 50, r: 50 },
             xaxis: { 
@@ -295,7 +299,7 @@ class Player {
 
         layout = {
             title: {
-                text: `Rank Points for ${this.pname} [${this.pidx}]`,
+                text: `Rank Points Trend for ${this.pname}[${this.pidx}]`,
             },
             margin: { t: 50, b: 50, l: 50, r: 50 },
             xaxis: { 
@@ -322,9 +326,12 @@ class Player {
         prevGame = null
         let prevChange = 0
         for (let [index, game] of games.entries()) {
+            // Demotion/promotion or last section
             if (prevGame && prevGame.player.level != game.player.level || index == games.length-1) {
                 // console.log("level=", game.player.level, level_dan(game.player.level))
-                for (let x of [prevChange, index]) {
+                // draw vertical lines
+                let x_coords = [prevChange, index == games.length-1 ? index+1 : index]
+                for (let x of x_coords) {
                     layout.shapes.push({
                             type: 'line', 
                             x0: x, 
@@ -353,8 +360,8 @@ class Player {
                 for (let y of [-1, 0, 1]) {
                     layout.shapes.push({
                             type: 'line',
-                            x0: prevChange,
-                            x1: index,
+                            x0: x_coords[0],
+                            x1: x_coords[1],
                             y0: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
                             y1: level_pt_sum_base[prevGame.player.level] + y*level_pt_base(prevGame.player.level),
                             xref: 'x',
@@ -371,6 +378,7 @@ class Player {
             }
             prevGame = game
         }
+        // manually annotate left y-axis
         for (let y of [-1, 0, 1]) {
             layout.annotations.push({
                 x: 1.01,
@@ -393,9 +401,11 @@ class Player {
 async function main() {
     let players = [
         ["KillerDucky", 0],
-        ["StickThief", 0],
-        ["mort", 2],
         ["navitas", 1],
+        ["Xsin", 1],
+        ["mort", 2],
+        ["Altaccz", 0],
+        ["StickThief", 0],
     ]
     let charts = []
     for (let p of players) {
