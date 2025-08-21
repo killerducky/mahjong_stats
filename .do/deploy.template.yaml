@@ -1,0 +1,8 @@
+spec:
+  name: mahjong_stats
+  services:
+  - dockerfile_path: Dockerfile
+    git:
+      branch: main
+      repo_clone_url: https://github.com/killerducky/mahjong_stats.git
+    name: mahjong_stats

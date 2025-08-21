@@ -1,0 +1,8 @@
+name: mahjong_stats
+services:
+- dockerfile_path: Dockerfile
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: digitalocean/mahjong_stats
+  name: mahjong_stats
