@@ -100,12 +100,28 @@ function calcMovingAverage(data, windowSize, lambdaAvg) {
     return finalResult
 }
 
-async function loadPlayerData(nickname, pidx) {
+async function loadPlayerData(pname, pidx) {
     let res, data
-    res = await fetch(`/player/${nickname}/${pidx}`)
+    res = await fetch(`/player/${pname}/${pidx}`)
     data = await res.json()
+    let latest_timestamp = data.info.latest_timestamp*1000
+    let now = new Date()
+    // console.log(latest_timestamp, now.getTime(), now - latest_timestamp, (now-latest_timestamp)/1000/60/60)
+    // console.log(new Date(latest_timestamp).toString())
+    // console.log(now.toString())
     data.games.reverse() // TODO Where should this really be done?
     return data
+}
+
+function storePlayerList() {
+    // For now just grab out of UI elements. We could also hold the Player class list in a globalish thing
+    let pnameEls = document.querySelectorAll('.pname')
+    let pidxEls = document.querySelectorAll('.pidx')
+    let players = []
+    pnameEls.forEach((pnameEl, index) => {
+        players.push([pnameEl.value, Number(pidxEls[index].value)])
+    })
+    localStorage.setItem("players", JSON.stringify(players))
 }
 
 class Player {
@@ -163,8 +179,9 @@ class Player {
     async generate() {
         let games
         let data = await loadPlayerData(this.pname, this.pidx)
-        this.uuid = data.id
+        this.uuid = data.info.id
         games = data.games
+        storePlayerList()
         // console.log(this.pname)
         // console.log(games)
         // console.log(games[0])
@@ -399,14 +416,22 @@ class Player {
 }
 
 async function main() {
-    let players = [
-        ["KillerDucky", 0],
-        ["navitas", 1],
-        ["Xsin", 1],
-        ["mort", 2],
-        ["Altaccz", 0],
-        ["StickThief", 0],
-    ]
+    // A couple examples how to seed the players key:
+    if (false) {
+        localStorage.setItem("players", JSON.stringify([
+            ["KillerDucky",0],
+            ["navitas",1],
+            ["Xsin",1],
+            ["mort",2],
+            ["Altaccz",0],
+            ["StickThief",0]
+        ]))
+    }
+    if (false) { 
+        localStorage.setItem("players", '[["KillerDucky",0],["navitas",1],["Xsin",1],["mort",2],["Altaccz",0],["StickThief",0]]') 
+    }
+    let players = JSON.parse(localStorage.getItem('players')||'[["",0]]')
+    // console.log(JSON.stringify(players))
     let charts = []
     for (let p of players) {
         let chart
