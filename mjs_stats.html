@@ -3,8 +3,33 @@
   <head>
     <title>MJS charts</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+      body {
+        max-width:1200px;
+        margin: 0px auto;
+        padding: 20px;
+        line-height: 1.5;
+      }
+    </style>
   </head>
   <body>
+    <div class="documentation">
+      <h1>Mahjong Soul Expected Score per round</h1>
+      <ul>
+        <li>
+          Based on <a href="https://colab.research.google.com/drive/1puwnp-_k3aHV8trHYInX9HGsBgnJ-hYY#scrollTo=Uoyjy8mCJ21c">Original collab script</a>
+        </li>
+        <li>
+        Usage: Input your username (and change idx if needed) and click Generate Graph
+        </li>
+        <li>
+          Graphs a moving average of your expected score per round played. There are several averages that respond more or less quickly. 
+        </li>
+        <li>
+        Averages for Gold room and Jade room are kept separately because the player pools are different. Only 4 player is supported.
+        </li>
+      </ul>
+    </div>
     <div class="chart-container">
       <div class="controls">
         <label class="small">Name:</label>
@@ -12,6 +37,17 @@
 
         <label class="small">idx:</label>
         <input class="pidx" type="number" value="0" min=0 style="width:25px; height: 20px;">
+
+        <label class="small">Norm Rank:</label>
+        <select class="norm-rank" type="text" value="auto" style="width:50px; height: 20px;">
+          <option value="auto">auto</option>
+          <option value="M1">M1</option>
+          <option value="M1">M2</option>
+          <option value="M1">M3</option>
+          <option value="S1">S1</option>
+          <option value="S2">S2</option>
+          <option value="S3">S3</option>
+        </select>
 
         <label class="small">Last N Games</label>
         <input class="xmin" type="number" value="500" step="100" min=0 style="width: 60px; height: 20px; ">

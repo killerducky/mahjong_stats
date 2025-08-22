@@ -29,6 +29,23 @@ const level_pt_base = (level) => {
     let p = {301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45}
     return (Math.floor(level / 100) % 100 >= 6) ? 5000 : p[level % 1000] * 100;
 };
+// the math of level_dan function is neat, but I think this is easier to understand:
+const level2rank = {
+    10301: level_dan(10301), // "E1"
+    10302: level_dan(10302), // "E2"
+    10303: level_dan(10303), // "E3"
+    10401: level_dan(10401), // "M1"
+    10402: level_dan(10402), // "M2"
+    10403: level_dan(10403), // "M3"
+    10501: level_dan(10501), // "S1"
+    10502: level_dan(10502), // "S2"
+    10503: level_dan(10503), // "S3"
+    10701: level_dan(10701), // "C1"
+}
+const rank2level = {};
+for (const [level, rank] of Object.entries(level2rank)) {
+    rank2level[rank] = parseInt(level); // convert level back to number if needed
+}
 let level_pt_sum_base = {}
 let sum = level_pt_base(10301)
 for (let level of [10301, 10302, 10303, 10401, 10402, 10403, 10501, 10502, 10503]) {
@@ -124,37 +141,34 @@ function storePlayerList() {
     localStorage.setItem("players", JSON.stringify(players))
 }
 
+function last_place_normalize(game_type, rank_game_was_played_at, rank_to_normalize_to) {
+    // Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
+    return last_place_penalty[game_type][rank_to_normalize_to] - last_place_penalty[game_type][rank_game_was_played_at]
+}
+
 class Player {
-    constructor(chartContainerEl, pname, pidx) {
+    constructor(chartContainerEl, pname, pidx, normRank) {
         this.chartContainerEl = chartContainerEl
         this.pname = pname
         this.pidx = pidx
+        this.normRank = normRank
         // this.uuid = uuid
-        this.normalizeToRankLine = 3
-        this.NORMALIZE_TO_RANK = RANK_LINES[this.normalizeToRankLine]
         this.generateBtn = this.chartContainerEl.querySelector('.generate');
         this.pnameBtn = this.chartContainerEl.querySelector('.pname')
         this.pnameBtn.value = this.pname
         this.pidxBtn = this.chartContainerEl.querySelector('.pidx')
         this.pidxBtn.value = this.pidx
+        this.normRankBtn = this.chartContainerEl.querySelector('.norm-rank')
+        this.normRankBtn.value = this.normRank
         this.xminEl = this.chartContainerEl.querySelector('.xmin')
         this.ESChart = this.chartContainerEl.querySelector('.ESChart')
         this.RankPointChart = this.chartContainerEl.querySelector('.RankPointChart')
         this.actualXmaxValue
         this.xminEl.addEventListener('change', () => this.relayout());
-
-        this.last_place_normalize = {}
-        for (const type in last_place_penalty) {
-            // Add this amount to the points iff we were 4th to normalize it to normalize_to_rank
-            this.last_place_normalize[type] = {};
-            for (const k in last_place_penalty[type]) {
-                this.last_place_normalize[type][k] = last_place_penalty[type][this.NORMALIZE_TO_RANK] - last_place_penalty[type][k]
-            }
-        }
-
         this.generateBtn.addEventListener('click', ()=>{
             this.pname = this.pnameBtn.value
             this.pidx = this.pidxBtn.value
+            this.normRank = this.normRankBtn.value
             this.generate();
         });
     }
@@ -182,20 +196,41 @@ class Player {
         this.uuid = data.info.id
         games = data.games
         storePlayerList()
-        // console.log(this.pname)
-        // console.log(games)
-        // console.log(games[0])
-        
-        let prevGame = null
+
         for (let game of games) {
             game.player = game.players.find(p => p.accountId == this.uuid)
             const players_sorted = [...game.players].sort((a, b) => a.gradingScore - b.gradingScore);
             players_sorted.forEach((player, index) => {
                 player.placement = players_sorted.length - index
             })
+        }
+
+        // TODO: The logic of this is kinda messed up.
+        let current_level
+        if (this.normRank == "auto") {
+            current_level = games[games.length-1].player.level
+        } else {
+            current_level = rank2level[this.normRank]
+        }
+        this.normalizeToRankLine = RANK_LINES.indexOf(level2rank[current_level])
+        if (this.normalizeToRankLine == -1) { 
+            if (current_level >= rank2level["C1"]) {
+                this.normalizeToRankLine = RANK_LINES.indexOf("S3")
+            } else {
+                this.normalizeToRankLine == 0 // default to M1 if not found
+            }
+        }
+        this.NORMALIZE_TO_RANK = RANK_LINES[this.normalizeToRankLine]
+
+        // console.log(this.pname)
+        // console.log(games)
+        // console.log(games[games.length-1])
+        
+        let prevGame = null
+        for (let game of games) {
             game.player.gradingScoreNorm = game.player.gradingScore
             if (game.player.placement == 4) {
-                game.player.gradingScoreNorm += this.last_place_normalize[modeId2RoomLength[game['modeId']]][level_dan(game.player['level'])]
+                game.player.gradingScoreNorm += last_place_normalize(modeId2RoomLength[game['modeId']], level_dan(game.player['level']), this.NORMALIZE_TO_RANK)
             }
             if (!prevGame || prevGame.player.level != game.player.level) {
                 game.player.rankPoints = level_pt_sum_base[game.player.level] + game.player.gradingScore
@@ -206,7 +241,7 @@ class Player {
             prevGame = game
             // console.log(game.player)
         }
-        games = games.filter(game => game.player.level < C1_LEVEL)
+        games = games.filter(game => game.player.level < rank2level["C1"])
         const x = games.map((_, i) => i + 1); // x-axis: game numbers
         this.actualXmaxValue = x.length
         const windowSizes = [100, 200, 400];
@@ -442,7 +477,7 @@ async function main() {
             document.body.appendChild(chart)
         }
         charts.push(chart)
-        new Player(chart, p[0], p[1])
+        new Player(chart, p[0], p[1], "auto")
     }
 }
 
