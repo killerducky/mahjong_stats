@@ -33,37 +33,33 @@ app.get("/player/:nickname/:pidx", async (req, res) => {
 
         let data;
         let games;
-        let json_fn = `${JSON_DATA_BASE_FILENAME}_${pname}.json`;
+        let json_fn = `${JSON_DATA_BASE_FILENAME}_${pname}_${pidx}.json`;
         if (true && fs.existsSync(json_fn)) {
             const fileContents = await fs.promises.readFile(json_fn, "utf8");
             data = JSON.parse(fileContents);
         } else {
             data = { pnames: {} };
         }
-        console.log("server fetch", pname);
+        console.log("server fetch", pname, pidx);
         let res1 = await fetch(url);
         let data1 = await res1.json();
         const result = data1[pidx];
         if (pname in data.pnames) {
-            console.log("old", data.pnames[pname].info);
             if (data.pnames[pname].info.latest_timestamp == result.latest_timestamp) {
                 console.log("latest_timestamp match, no new games");
                 res.json(data.pnames[pname]);
                 return;
             }
-            console.log("new", result);
         } else {
             data.pnames[pname] = {};
         }
-        data.pnames[pname].info = result;
-        // TODO: Check if timestamp didn't change
-        console.log("new", data.pnames[pname].info);
+        data.pnames[pname].info = result; // update info
 
         let latest_timestamp = data.pnames[pname].info.latest_timestamp * 1000;
         let now = new Date();
-        console.log(latest_timestamp, now.getTime(), now - latest_timestamp, (now - latest_timestamp) / 1000 / 60 / 60);
-        console.log(new Date(latest_timestamp).toString());
-        console.log(now.toString());
+        // console.log(latest_timestamp, now.getTime(), now - latest_timestamp, (now - latest_timestamp) / 1000 / 60 / 60);
+        // console.log(new Date(latest_timestamp).toString());
+        // console.log(now.toString());
 
         const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         games = [];
@@ -71,7 +67,7 @@ app.get("/player/:nickname/:pidx", async (req, res) => {
 
         for (let i = 0; i < 20; i++) {
             let s1 = `${s0}player_records/${result.id}/${start}999/1262304000000?limit=500&mode=${mode}&descending=true&tag=`;
-            console.log(s1);
+            // console.log(s1);
             const res2 = await fetch(s1);
             const these_games = await res2.json();
             // console.log(these_games)

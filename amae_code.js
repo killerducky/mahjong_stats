@@ -171,11 +171,15 @@ class Player {
         this.RankPointChart = this.chartContainerEl.querySelector(".RankPointChart");
         this.actualXmaxValue;
         this.xminEl.addEventListener("change", () => this.relayout());
-        this.generateBtn.addEventListener("click", () => {
+        this.generateBtn.addEventListener("click", async () => {
+            document.documentElement.style.cursor = "wait";
+            this.generateBtn.disabled = true;
             this.pname = this.pnameBtn.value;
             this.pidx = this.pidxBtn.value;
             this.normRank = this.normRankBtn.value;
-            this.generate();
+            await this.generate();
+            document.documentElement.style.cursor = "default";
+            this.generateBtn.disabled = false;
         });
     }
     relayout() {
