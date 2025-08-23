@@ -4,24 +4,72 @@
         <meta charset="utf-8" />
         <title>KillerDucky</title>
         <style>
+            html {
+                background-color: hsl(210, 70%, 85%);
+            }
             body {
-                max-width: 800px;
+                max-width: 1200px;
                 margin: 0px auto;
                 padding: 20px;
                 line-height: 1.5;
+                font-family: "Segoe UI";
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+            }
+            header {
+                background: hsl(210, 70%, 40%);
+                color: hsl(0, 0%, 90%);
+                padding: 15px;
+                text-align: center;
+                font-size: 1.5em;
+            }
+            .container {
+                flex: 1;
+                display: flex;
+            }
+            nav {
+                width: 150px;
+                /* background: hsl(210, 70%, 60%); */
+                padding: 20px;
+                box-shadow: 2px 0p 5px rgba(0, 0, 0, 0.1);
+            }
+            nav a {
+                display: block;
+                /* color: hsl(0, 0%, 90%); */
+                text-decoration: none;
+                margin: 10px 0;
+            }
+            /* nav a:hover {
+                color: hsl(0, 0%, 100%);
+            } */
+            main {
+                flex: 1;
+                padding: 20px;
             }
         </style>
     </head>
     <body>
-        <h1>Home page of KillerDucky.</h1>
+        <header>
+            <h1>KillerDucky Hobby Projects</h1>
+            Advice, links, and tools to get started in a few games.
+        </header>
 
-        Advice, links, and tools to get started in a few games.
-
-        <ul>
-            <li><a href="mjs_stats.html">MJS Expected Score graph maker</a> Show your rank history and expected score per game (Gold room or higher only)</li>
-            <li><a href="https://killerducky.github.io/go/intro">Go</a></li>
-            <li><a href="https://killerducky.github.io/mahjong/intro">Riichi Mahjong</a></li>
-            <li><a href="https://killerducky.github.io/shogi/intro">Shogi</a></li>
-        </ul>
+        <div class="container">
+            <nav>
+                <a href="#">Home</a>
+            </nav>
+            <main>
+                <ul>
+                    <li>
+                        <a href="mjs_stats.html">MJS Expected Score graph maker</a>
+                        Show your rank history and expected score per game (Gold room or higher only)
+                    </li>
+                    <li><a href="https://killerducky.github.io/go/intro">Go</a></li>
+                    <li><a href="https://killerducky.github.io/mahjong/intro">Riichi Mahjong</a></li>
+                    <li><a href="https://killerducky.github.io/shogi/intro">Shogi</a></li>
+                </ul>
+            </main>
+        </div>
     </body>
 </html>
