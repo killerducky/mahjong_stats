@@ -127,8 +127,8 @@ async function loadPlayerData(pname, pidx) {
     let res, data;
     res = await fetch(`/player/${pname}/${pidx}`);
     data = await res.json();
-    let latest_timestamp = data.info.latest_timestamp * 1000;
-    let now = new Date();
+    // let latest_timestamp = data.info.latest_timestamp * 1000;
+    // let now = new Date();
     // console.log(latest_timestamp, now.getTime(), now - latest_timestamp, (now-latest_timestamp)/1000/60/60)
     // console.log(new Date(latest_timestamp).toString())
     // console.log(now.toString())
@@ -216,23 +216,23 @@ class Player {
             });
         }
 
-        // TODO: The logic of this is kinda messed up.
-        let current_level;
+        let normLevel;
         if (this.normRank == "auto") {
-            current_level = games[games.length - 1].player.level;
+            normLevel = games[games.length - 1].player.level;
         } else {
-            current_level = rank2level[this.normRank];
+            normLevel = rank2level[this.normRank];
         }
-        this.normalizeToRankLine = RANK_LINES.indexOf(level2rank[current_level]);
+        this.normalizeToRankLine = RANK_LINES.indexOf(level2rank[normLevel]);
         if (this.normalizeToRankLine == -1) {
-            if (current_level >= rank2level["C1"]) {
+            if (normLevel >= rank2level["C1"]) {
                 this.normalizeToRankLine = RANK_LINES.indexOf("S3");
+                normLevel = rank2level["S3"];
             } else {
                 this.normalizeToRankLine == 0; // default to M1 if not found
+                normLevel = rank2level["M1"];
             }
         }
-        this.NORMALIZE_TO_RANK = RANK_LINES[this.normalizeToRankLine];
-
+        this.normRank = level2rank[normLevel];
         // console.log(this.pname)
         // console.log(games)
         // console.log(games[games.length-1])
@@ -241,11 +241,7 @@ class Player {
         for (let game of games) {
             game.player.gradingScoreNorm = game.player.gradingScore;
             if (game.player.placement == 4) {
-                game.player.gradingScoreNorm += last_place_normalize(
-                    modeId2RoomLength[game["modeId"]],
-                    level_dan(game.player["level"]),
-                    this.NORMALIZE_TO_RANK
-                );
+                game.player.gradingScoreNorm += last_place_normalize(modeId2RoomLength[game["modeId"]], level_dan(game.player["level"]), this.normRank);
             }
             if (!prevGame || prevGame.player.level != game.player.level) {
                 game.player.rankPoints = level_pt_sum_base[game.player.level] + game.player.gradingScore;
@@ -292,7 +288,7 @@ class Player {
 
         let layout = {
             title: {
-                text: `Expected Scores for ${this.pname}[${this.pidx}] assuming ${this.NORMALIZE_TO_RANK}`,
+                text: `Expected Scores for ${this.pname}[${this.pidx}] assuming ${this.normRank}`,
             },
             margin: { t: 50, b: 50, l: 50, r: 50 },
             xaxis: {
@@ -456,23 +452,6 @@ class Player {
 }
 
 async function main() {
-    // A couple examples how to seed the players key:
-    if (false) {
-        localStorage.setItem(
-            "players",
-            JSON.stringify([
-                ["KillerDucky", 0],
-                ["navitas", 1],
-                ["Xsin", 1],
-                ["mort", 2],
-                ["Altaccz", 0],
-                ["StickThief", 0],
-            ])
-        );
-    }
-    if (false) {
-        localStorage.setItem("players", '[["KillerDucky",0],["navitas",1],["Xsin",1],["mort",2],["Altaccz",0],["StickThief",0]]');
-    }
     let players = JSON.parse(localStorage.getItem("players") || '[["",0]]');
     // console.log(JSON.stringify(players))
     let charts = [];
