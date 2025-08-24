@@ -2,20 +2,23 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>KillerDucky</title>
+        <!-- <link rel="icon" type="image/png" href="media/favicon.ico" /> -->
         <style>
+            /* * {
+                border: solid 1px red;
+            } */
             html {
-                background-color: hsl(210, 70%, 85%);
+                background-color: hsl(210, 100%, 90%);
             }
             body {
                 max-width: 1200px;
-                margin: 0px auto;
+                margin: 0 auto 150px auto;
                 padding: 20px;
                 line-height: 1.5;
                 font-family: "Segoe UI";
-                display: flex;
-                flex-direction: column;
-                height: 100vh;
+                display: block;
             }
             header {
                 background: hsl(210, 70%, 40%);
@@ -25,8 +28,9 @@
                 font-size: 1.5em;
             }
             .container {
-                flex: 1;
                 display: flex;
+                /* flex-wrap: wrap;
+                align-items: flex-start; */
             }
             .nav {
                 width: 150px;
@@ -47,8 +51,9 @@
                 color: hsl(313, 50%, 60%);
             }
             main {
-                flex: 1;
                 padding: 20px;
+                flex: 1 1 auto;
+                min-width: 0;
             }
             blockquote {
                 font-style: italic;
@@ -75,7 +80,7 @@
     </head>
     <body>
         <header>
-            <div style="display: flex; align-items: center; justify-content: space-between">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between">
                 <div style="width: 120px" ;></div>
                 <div>
                     <h1>KillerDucky: Game Explainer</h1>
@@ -106,15 +111,6 @@
                     My site focuses on helping beginners get over that wall so they can start actually enjoying the discovery process. I've carefully picked the
                     best resources to use as a beginner (plus some going on to intermediate territory), and give a recommended order to use them.
                 </p>
-                <!-- <ul>
-                    <li><a href="https://killerducky.github.io/go/intro">Go</a></li>
-                    <li><a href="https://killerducky.github.io/mahjong/intro">Riichi Mahjong</a></li>
-                    <ul>
-                        <li><a href="mjs_stats.html">MJS graphs</a> - Show your rank history and expected score per game (Gold room or higher only)</li>
-                    </ul>
-                    <li><a href="https://killerducky.github.io/shogi/intro">Shogi</a></li>
-                    <li><a href="https://www.twitch.tv/killerducky">My twitch page</a> - come learn a new game with me!</li>
-                </ul> -->
                 <div class="cards">
                     <div class="card">
                         <h3><a href="https://killerducky.github.io/go/intro">Go</a></h3>

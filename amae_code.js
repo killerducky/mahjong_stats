@@ -275,7 +275,8 @@ class Player {
                         mode: "lines",
                         name: `${value} ${lambdaStr} ${windowSize}`,
                         // visible: lambdaStr == "Sliding" ? false : true,
-                        visible: lambdaStr == "Sliding" ? "legendonly" : true,
+                        // visible: lambdaStr == "Sliding" ? "legendonly" : true,
+                        visible: windowSize == 200 ? "legendonly" : true,
                     });
                 }
             }
@@ -288,7 +289,7 @@ class Player {
 
         let layout = {
             title: {
-                text: `Expected Scores for ${this.pname}[${this.pidx}] assuming ${this.normRank}`,
+                text: `Expected Rank Point Change per Match for ${this.pname}[${this.pidx}] assuming ${this.normRank}`,
             },
             margin: { t: 50, b: 50, l: 50, r: 50 },
             xaxis: {
