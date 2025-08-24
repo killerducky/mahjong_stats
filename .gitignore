@@ -2,7 +2,6 @@
 *.json
 *.png
 stats_all.html
-media
 cachedir
 node_modules
 *.txt
