@@ -2,7 +2,7 @@ import express from "express";
 import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
-import fs from "fs";
+// import fs from "fs";
 import mysql from "mysql2/promise";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,13 +61,9 @@ async function getPlayer(nickname, pidx) {
     if (rows.length === 0) return null;
 
     const player = rows[0];
-    console.log(player);
 
     // Parse JSON columns
     return {
-        id: player.id,
-        nickname: player.nickname,
-        pidx: player.pidx,
         info: player.info,
         games: player.games,
     };
@@ -80,47 +76,39 @@ app.get("/", (req, res) => {
 
 app.use(express.static(__dirname));
 
-// Example endpoint to fetch player data (avoids CORS issues)
+// Endpoint to fetch player data (avoids CORS issues)
 app.get("/player/:nickname/:pidx", async (req, res) => {
     try {
         const pname = req.params.nickname;
         const pidx = req.params.pidx;
         const url = `https://5-data.amae-koromo.com/api/v2/pl4/search_player/${pname}`;
 
-        let data;
-        let games;
-        let json_fn = `${JSON_DATA_BASE_FILENAME}_${pname}_${pidx}.json`;
-        if (true && fs.existsSync(json_fn)) {
-            const fileContents = await fs.promises.readFile(json_fn, "utf8");
-            data = JSON.parse(fileContents);
-        } else {
-            data = { pnames: {} };
-        }
         console.log("server fetch", pname, pidx);
-        let dbPlayer = await getPlayer(pname, pidx);
-        console.log("DB Player:", dbPlayer);
         let res1 = await fetch(url);
         let data1 = await res1.json();
         const result = data1[pidx];
-        if (pname in data.pnames) {
-            if (data.pnames[pname].info.latest_timestamp == result.latest_timestamp) {
+
+        let dbPlayerData = await getPlayer(pname, pidx);
+        if (dbPlayerData) {
+            console.log("DB Player:", dbPlayerData.info.latest_timestamp, dbPlayerData.games.length);
+            if (dbPlayerData.info.latest_timestamp == result.latest_timestamp) {
                 console.log("latest_timestamp match, no new games");
-                res.json(data.pnames[pname]);
+                res.json(dbPlayerData);
                 return;
             }
         } else {
-            data.pnames[pname] = {};
+            dbPlayerData = {};
         }
-        data.pnames[pname].info = result; // update info
+        dbPlayerData.info = result; // update info
 
-        let latest_timestamp = data.pnames[pname].info.latest_timestamp * 1000;
-        let now = new Date();
+        // let latest_timestamp = dbPlayerData.info.latest_timestamp * 1000;
+        // let now = new Date();
         // console.log(latest_timestamp, now.getTime(), now - latest_timestamp, (now - latest_timestamp) / 1000 / 60 / 60);
         // console.log(new Date(latest_timestamp).toString());
         // console.log(now.toString());
 
         const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-        games = [];
+        let games = [];
         let start = result.latest_timestamp;
 
         for (let i = 0; i < 20; i++) {
@@ -143,11 +131,9 @@ app.get("/player/:nickname/:pidx", async (req, res) => {
                 break;
             }
         }
-        data.pnames[pname].games = games;
-        await fs.promises.writeFile(json_fn, JSON.stringify(data, null, 2));
-        await addPlayer("KillerDucky", 0, { rank: "Beginner", country: "US" }, { totalGames: 10, wins: 3 });
-        // console.log(games[0])
-        res.json(data.pnames[pname]);
+        dbPlayerData.games = games;
+        await addPlayer(pname, pidx, dbPlayerData.info, dbPlayerData.games);
+        res.json(dbPlayerData);
     } catch (err) {
         console.log("Error caught");
         console.log(err);
