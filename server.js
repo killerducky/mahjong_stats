@@ -3,10 +3,10 @@ import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import mysql from "mysql2/promise";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const JSON_DATA_BASE_FILENAME = "json_db/amae_data";
 const app = express();
 const PORT = 3000;
@@ -14,8 +14,64 @@ const s0 = "https://5-data.amae-koromo.com/api/v2/pl4/";
 // # 12 = 4p Hanchan Jade room, 9 = 4p Hanchan Gold room
 // # 11 = 4p Tonpuusen Jade room, 8 = 4p Tonpuusent Gold room
 const mode = "16,15,12,11,9,8";
-const Color = { 16: "r", 15: "r", 12: "g", 11: "g", 9: "y", 8: "y" };
-const start_level = 10301;
+const db = await initializeDatabase();
+
+async function initializeDatabase() {
+    const db = await mysql.createConnection({
+        host: process.env.DB_HOST || "localhost",
+        user: process.env.DB_USER || "mahjong",
+        password: process.env.DB_PASS || "strongpassword",
+        database: process.env.DB_NAME || "mahjong_stats",
+    });
+
+    await db.execute("CREATE DATABASE IF NOT EXISTS mahjong_stats");
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS player_stats (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            nickname VARCHAR(255) NOT NULL,
+            pidx INT NOT NULL,
+            info JSON,
+            games JSON,
+            UNIQUE KEY unique_player (nickname, pidx)
+        )
+    `);
+    return db;
+}
+
+async function addPlayer(nickname, pidx, infoObj, gamesObj) {
+    const sql = `
+    INSERT INTO player_stats (nickname, pidx, info, games)
+    VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      info = VALUES(info),
+      games = VALUES(games)
+  `;
+
+    await db.execute(sql, [nickname, pidx, JSON.stringify(infoObj), JSON.stringify(gamesObj)]);
+}
+
+async function getPlayer(nickname, pidx) {
+    const sql = `
+    SELECT * FROM player_stats
+    WHERE nickname = ? AND pidx = ?
+  `;
+
+    const [rows] = await db.execute(sql, [nickname, pidx]);
+
+    if (rows.length === 0) return null;
+
+    const player = rows[0];
+    console.log(player);
+
+    // Parse JSON columns
+    return {
+        id: player.id,
+        nickname: player.nickname,
+        pidx: player.pidx,
+        info: player.info,
+        games: player.games,
+    };
+}
 
 // Serve your HTML page
 app.get("/", (req, res) => {
@@ -41,6 +97,8 @@ app.get("/player/:nickname/:pidx", async (req, res) => {
             data = { pnames: {} };
         }
         console.log("server fetch", pname, pidx);
+        let dbPlayer = await getPlayer(pname, pidx);
+        console.log("DB Player:", dbPlayer);
         let res1 = await fetch(url);
         let data1 = await res1.json();
         const result = data1[pidx];
@@ -87,6 +145,7 @@ app.get("/player/:nickname/:pidx", async (req, res) => {
         }
         data.pnames[pname].games = games;
         await fs.promises.writeFile(json_fn, JSON.stringify(data, null, 2));
+        await addPlayer("KillerDucky", 0, { rank: "Beginner", country: "US" }, { totalGames: 10, wins: 3 });
         // console.log(games[0])
         res.json(data.pnames[pname]);
     } catch (err) {
