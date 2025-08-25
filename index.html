@@ -6,16 +6,16 @@
         <title>KillerDucky</title>
         <!-- <link rel="icon" type="image/png" href="media/favicon.ico" /> -->
         <style>
-            /* * {
+            * {
                 border: solid 1px red;
-            } */
+            }
             html {
                 background-color: hsl(210, 100%, 90%);
             }
             body {
                 max-width: 1200px;
                 margin: 0 auto 150px auto;
-                padding: 20px;
+                /* padding: 20px; */
                 line-height: 1.5;
                 font-family: "Segoe UI";
                 display: block;
@@ -29,14 +29,31 @@
             }
             .container {
                 display: flex;
+                flex-direction: column; /* override in media query */
                 /* flex-wrap: wrap;
                 align-items: flex-start; */
             }
             .nav {
-                width: 150px;
-                /* background: hsl(210, 70%, 60%); */
-                padding: 20px;
-                box-shadow: 2px 0p 5px rgba(0, 0, 0, 0.1);
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            @media (min-width: 768px) {
+                .container {
+                    flex-direction: row;
+                }
+                .nav {
+                    flex-direction: column;
+                    width: 150px;
+                    padding: 20px;
+                    justify-content: flex-start;
+                }
+                main {
+                    flex: 1;
+                    padding: 1rem;
+                }
             }
             .nav a {
                 display: block;
