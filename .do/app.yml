@@ -1,8 +1,31 @@
-name: mahjong_stats
+name: mahjong-stats
+region: nyc # choose your region
 services:
-- dockerfile_path: Dockerfile
-  github:
-    branch: main
-    deploy_on_push: true
-    repo: digitalocean/mahjong_stats
-  name: mahjong_stats
+    - name: web
+      github:
+          repo: killerducky/mahjong_stats
+          branch: main
+      dockerfile_path: Dockerfile # points to your Dockerfile
+      run_command: node server.js
+      instance_size_slug: basic-xxs
+      instance_count: 1
+      envs:
+          - key: DB_HOST
+            scope: RUN_TIME
+            value: ${DB_HOST} # will be provided by the database service
+          - key: DB_USER
+            scope: RUN_TIME
+            value: mahjong
+          - key: DB_PASS
+            scope: RUN_TIME
+            value: strongpassword
+          - key: DB_NAME
+            scope: RUN_TIME
+            value: mahjong_stats
+databases:
+    - name: mahjong-db
+      engine: MYSQL
+      version: "8"
+      size: db-s-1vcpu-1gb
+      num_nodes: 1
+      production: true
