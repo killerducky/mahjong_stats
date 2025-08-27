@@ -126,6 +126,9 @@ function calcMovingAverage(data, windowSize, lambdaAvg) {
 async function loadPlayerData(pname, pidx) {
     let res, data;
     res = await fetch(`/player/${pname}/${pidx}`);
+    if (!res.ok) {
+        return null;
+    }
     data = await res.json();
     // let latest_timestamp = data.info.latest_timestamp * 1000;
     // let now = new Date();
@@ -203,7 +206,15 @@ class Player {
 
     async generate() {
         let games;
+        if (this.pname.trim() == "" || isNaN(this.pidx) || this.pidx < 0) {
+            alert(`Please enter a valid player name and idx`);
+            return;
+        }
         let data = await loadPlayerData(this.pname, this.pidx);
+        if (!data) {
+            alert(`Failed to load data for Name:${this.pname} idx:${this.pidx}\nData from https://amae-koromo.sapk.ch\nGold room and up only.`);
+            return;
+        }
         this.uuid = data.info.id;
         games = data.games;
         storePlayerList();
