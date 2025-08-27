@@ -228,7 +228,7 @@ class Player {
                 this.normalizeToRankLine = RANK_LINES.indexOf("S3");
                 normLevel = rank2level["S3"];
             } else {
-                this.normalizeToRankLine == 0; // default to M1 if not found
+                this.normalizeToRankLine = 0; // default to M1 if not found
                 normLevel = rank2level["M1"];
             }
         }
