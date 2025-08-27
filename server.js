@@ -17,7 +17,7 @@ const mode = "16,15,12,11,9,8";
 const db = await initializeDatabase();
 
 async function initializeDatabase() {
-    const db = await mysql.createConnection({
+    const db = mysql.createPool({
         host: process.env.DB_HOST || "localhost",
         user: process.env.DB_USER || "mahjong",
         password: process.env.DB_PASS || "strongpassword",
