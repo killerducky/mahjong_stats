@@ -275,6 +275,7 @@ class Player {
             for (const [key, value] of Object.entries(modeId2RoomTypeFull)) {
                 let numMatch = games.filter((game) => game.modeId == key).length;
                 let attr = games.map((game) => (game.modeId == key ? game.player.gradingScoreNorm : null));
+                // let gameDur = games.map((game) => (game.endTime - game.startTime) / 60);
                 if (numMatch / games.length < 0.05) {
                     continue;
                 }
@@ -283,6 +284,7 @@ class Player {
                     traces.push({
                         x: x,
                         y: ema,
+                        // y: gameDur,
                         mode: "lines",
                         name: `${value} ${lambdaStr} ${windowSize}`,
                         // visible: lambdaStr == "Sliding" ? false : true,
@@ -302,22 +304,20 @@ class Player {
             title: {
                 text: `Expected Rank Point Change per Match for ${this.pname}[${this.pidx}] assuming ${this.normRank}`,
             },
-            margin: { t: 50, b: 50, l: 50, r: 50 },
+            margin: { t: 50, b: 50, l: 60, r: 60 },
             xaxis: {
-                title: "Game #",
+                title: { text: "Game #", standoff: 10 },
                 linecolor: "black",
                 mirror: true,
             },
             yaxis: {
-                title: "Score",
+                title: { text: "Expected Rank Point Change", standoff: 0 },
                 linecolor: "black",
                 mirror: true,
-                // fixedrange: true,
-                // range: [yMin-5, yMax+5],
             },
             legend: {
                 x: 0.5,
-                y: -0.1,
+                y: -0.15,
                 xanchor: "center",
                 yanchor: "top",
                 orientation: "h",
@@ -368,14 +368,14 @@ class Player {
             title: {
                 text: `Rank Points Trend for ${this.pname}[${this.pidx}]`,
             },
-            margin: { t: 50, b: 50, l: 50, r: 50 },
+            margin: { t: 50, b: 50, l: 60, r: 60 },
             xaxis: {
-                title: "Game #",
+                title: { text: "Game #", standoff: 10 },
                 linecolor: "black",
                 mirror: true,
             },
             yaxis: {
-                title: "Score",
+                title: { text: "Rank Points", standoff: 10 },
                 linecolor: "black",
                 mirror: true,
             },
