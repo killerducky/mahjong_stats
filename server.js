@@ -128,8 +128,8 @@ app.get("/player/:nickname/:pidx", async (req, res) => {
         // Use seconds for all these variables, and convert to ms in the actual fetch URL
         let date_limit = MJS_DATE_LIMIT / 1000;
         if (dbPlayerData.games && dbPlayerData.games.length > 0) {
-            // date_limit = dbPlayerData.games[0].startTime - 1;  // one game overlap
-            date_limit = dbPlayerData.games[0].startTime; // no overlap
+            // date_limit = dbPlayerData.games[0].startTime;  // one game overlap
+            date_limit = dbPlayerData.games[0].startTime + 1; // no overlap
             // so the date_limit is exclusive -- does not include games that start on this timestamp
         }
         for (let i = 0; i < 20; i++) {
