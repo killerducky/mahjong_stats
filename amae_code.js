@@ -322,6 +322,7 @@ class Player {
                 yanchor: "top",
                 orientation: "h",
             },
+            // hovermode: "x unified",
             shapes: [],
             annotations: [],
         };
@@ -360,8 +361,13 @@ class Player {
         traces.push({
             x: x,
             y: games.map((game) => game.player.rankPoints),
+            text: games.map((game) => {
+                let currPoints = game.player.rankPoints - level_pt_sum_base[game.player.level] + level_pt_base(prevGame.player.level);
+                return `${level2rank[game.player.level]} ${currPoints}`;
+            }),
             mode: "lines",
             name: `rp`,
+            hovertemplate: "%{text}<extra></extra>",
         });
 
         layout = {
@@ -385,6 +391,7 @@ class Player {
                 xanchor: "center",
                 yanchor: "top",
             },
+            hovermode: "x",
             shapes: [],
             annotations: [],
         };
