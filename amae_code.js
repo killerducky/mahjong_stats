@@ -33,8 +33,18 @@ const d = ["?", "E", "M", "S", "?", "C"];
 const C1_LEVEL = 10701; // TODO just make forward/reverse maps instead of all this math?
 const level_dan = (level) => `${d[(Math.floor(level / 100) % 100) - 2]}${level % 100}`;
 const level_pt_base = (level) => {
-    let p = { 301: 6, 302: 7, 303: 10, 401: 14, 402: 16, 403: 18, 501: 20, 502: 30, 503: 45 };
-    return Math.floor(level / 100) % 100 >= 6 ? 5000 : p[level % 1000] * 100;
+    const level_pt_base = {
+        301: 600, // E1
+        302: 700,
+        303: 1000,
+        401: 1400,
+        402: 1600,
+        403: 1800,
+        501: 2000,
+        502: 3000,
+        503: 4500, // S3
+    };
+    return level_pt_base[level % 1000] || 5000; // 5000 for C1 and above -- which doesn't really matter
 };
 // the math of level_dan function is neat, but I think this is easier to understand:
 const level2rank = {
@@ -266,7 +276,7 @@ class Player {
         games = games.filter((game) => game.player.level < rank2level["C1"]);
         const x = games.map((_, i) => i + 1); // x-axis: game numbers
         this.actualXmaxValue = x.length;
-        const windowSizes = [100, 200, 400];
+        const windowSizes = [100, 400];
 
         let traces = [];
 
@@ -362,7 +372,7 @@ class Player {
             x: x,
             y: games.map((game) => game.player.rankPoints),
             text: games.map((game) => {
-                let currPoints = game.player.rankPoints - level_pt_sum_base[game.player.level] + level_pt_base(prevGame.player.level);
+                let currPoints = game.player.rankPoints - level_pt_sum_base[game.player.level] + level_pt_base(game.player.level);
                 return `${level2rank[game.player.level]} ${currPoints}`;
             }),
             mode: "lines",
